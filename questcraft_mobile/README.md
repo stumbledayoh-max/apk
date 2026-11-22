@@ -12,8 +12,8 @@ Também aceita o seu arquivo local com `--apk`. Nenhum APK de terceiros ou chave
 armazenado neste repositório.
 
 > **Importante:** isto é um patch experimental, **não é uma conversão comprovada**.
-> Até agora, a compilação foi exercitada com um APK sintético e a lógica do
-> manifesto foi testada; não houve teste em dispositivo real. O Unity, o
+> A montagem foi testada com um APK sintético e também gerou um APK a partir
+> do release oficial, mas não houve teste em dispositivo real. O Unity, o
 > Vivecraft, extensões proprietárias de Quest ou o mapeamento das mãos podem
 > falhar. O patch não garante que o seu telefone execute o jogo.
 

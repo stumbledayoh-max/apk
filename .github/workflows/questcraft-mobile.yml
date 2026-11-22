@@ -41,7 +41,9 @@ jobs:
             --debug-keystore "$RUNNER_TEMP/questcraft-debug.p12" \
             --output questcraft-build/QuestCraft-Mobile-debug.apk
       - name: Instruções no pacote
-        run: cp questcraft_mobile/LEIA-PRIMEIRO.txt questcraft-build/LEIA-PRIMEIRO.txt
+        run: |
+          cp questcraft_mobile/LEIA-PRIMEIRO.txt questcraft-build/LEIA-PRIMEIRO.txt
+          cp questcraft_mobile/README.md questcraft-build/README-DETALHADO.md
       - uses: actions/upload-artifact@v4
         with:
           name: QuestCraft-Mobile-debug-experimental

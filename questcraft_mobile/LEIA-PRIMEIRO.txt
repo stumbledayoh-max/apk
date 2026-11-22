@@ -2,20 +2,19 @@ QUESTCRAFT MOBILE — EXPERIMENTAL
 
 Este APK é uma adaptação do QuestCraft oficial 6.0.0, não foi testado em
 um celular e pode não abrir. Ele NÃO inclui o runtime, o rastreamento de mãos
-ou o Minecraft: Java Edition. Leia as instruções completas e limitações em:
-https://github.com/stumbledayoh-max/apk/blob/main/questcraft_mobile/README.md
-(Em uma branch ainda não mesclada, abra o README da própria branch.)
+ou o Minecraft: Java Edition. Leia as instruções completas e limitações no
+arquivo README-DETALHADO.md que acompanha este APK.
 
 1. Em um telefone Android 10+ ARM64 com câmera e sensores, instale o PhoneXR
    FULL 2.0.1 do projeto original (NÃO a versão BE, que não tem câmera):
    https://github.com/samrat1games/phonexr/releases/tag/v2.0.1
 2. Abra o PhoneXR, permita a câmera e instale/ative o PhoneXR Runtime quando
-   ele solicitar. Na biblioteca do PhoneXR, abra o QuestCraft por lá: o app
-   é quem inicia o serviço de mãos e entrega sensores ao runtime OpenXR.
-3. Instale QuestCraft-Mobile-debug.apk, volte ao PhoneXR e execute-o por lá.
-   Se não conseguir instalar, verifique CPU/Android e se já há outra versão
-   do pacote com assinatura diferente. DESINSTALAR A VERSÃO ANTIGA PODE APAGAR
-   SEUS DADOS: faça backup antes.
+   ele solicitar. O PhoneXR inicia o serviço de mãos e entrega sensores ao
+   runtime OpenXR.
+3. Instale QuestCraft-Mobile-debug.apk, volte ao PhoneXR e execute-o pela
+   biblioteca. Se não conseguir instalar, verifique CPU/Android e se já há
+   outra versão do pacote com assinatura diferente. DESINSTALAR A VERSÃO ANTIGA
+   PODE APAGAR SEUS DADOS: faça backup antes.
 4. O jogo pode precisar baixar componentes adicionais e exige conta Microsoft
    com Minecraft: Java Edition. Controle Bluetooth pode ser necessário.
 
