@@ -1,0 +1,50 @@
+name: QuestCraft Mobile (experimental)
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'questcraft_mobile/**'
+      - '.github/workflows/questcraft-mobile.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - name: Testar adaptação do manifesto
+        run: python3 -m unittest discover -s questcraft_mobile/tests -v
+      - name: Instalar ferramentas Android
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ ! -x "$ANDROID_HOME/build-tools/35.0.0/zipalign" ]; then
+            yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'build-tools;35.0.0'
+          fi
+          curl --fail --location --retry 3 --output "$RUNNER_TEMP/apktool.jar" \
+            https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
+          java -jar "$RUNNER_TEMP/apktool.jar" --version
+      - name: Adaptar e assinar APK oficial para arm64
+        run: |
+          python3 questcraft_mobile/build_apk.py \
+            --apktool-jar "$RUNNER_TEMP/apktool.jar" \
+            --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
+            --debug-keystore "$RUNNER_TEMP/questcraft-debug.p12" \
+            --output questcraft-build/QuestCraft-Mobile-debug.apk
+      - name: Instruções no pacote
+        run: cp questcraft_mobile/LEIA-PRIMEIRO.txt questcraft-build/LEIA-PRIMEIRO.txt
+      - uses: actions/upload-artifact@v4
+        with:
+          name: QuestCraft-Mobile-debug-experimental
+          path: questcraft-build/
+          if-no-files-found: error
+          retention-days: 14

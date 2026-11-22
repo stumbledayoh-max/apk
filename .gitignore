@@ -1,0 +1,14 @@
+# Instalações, resultados e chaves locais; nunca subir APKs ou chaves ao repositório.
+node_modules/
+dist/
+.cache/
+.questcraft-build/
+*.apk
+*.aab
+*.keystore
+*.jks
+*.p12
+__pycache__/
+*.pyc
+.DS_Store
+questcraft-build/
