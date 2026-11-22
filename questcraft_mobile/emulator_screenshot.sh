@@ -30,7 +30,7 @@ adb logcat -d -t 4000 -v brief > capture/logcat.txt || true
 
 # O check contém uma prévia compacta, oculta em comentário, para inspeção no
 # repositório. Não há dados pessoais: o emulador é novo e não faz login.
-python3 -m pip install --quiet Pillow || true
+python3 -m pip install --quiet --user --break-system-packages Pillow
 python3 - <<'PY'
 import base64
 import json
@@ -61,7 +61,10 @@ payload = {
 Path('capture/check.json').write_text(json.dumps(payload), encoding='utf-8')
 PY
 if [ -f capture/check.json ]; then
-  gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" --input capture/check.json >/dev/null || true
+  gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" --input capture/check.json > capture/check-response.json || true
   rm -f capture/check.json
 fi
+# Um resumo pequeno do diagnóstico fica visível nas anotações da execução.
+report_note=$(tr '\n' ' ' < "$REPORT" | cut -c1-1500)
+printf '::notice title=Diagnóstico do emulador::%s\n' "$report_note"
 cat "$REPORT"
