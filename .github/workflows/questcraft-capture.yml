@@ -1,0 +1,67 @@
+name: Captura experimental do QuestCraft
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - '.github/workflows/questcraft-capture.yml'
+      - 'questcraft_mobile/emulator_screenshot.sh'
+
+permissions:
+  contents: read
+  actions: read
+  checks: write
+
+jobs:
+  captura:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: Baixar a última build experimental desta branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          RUN_ID=$(gh run list --workflow questcraft-mobile.yml --branch "$GITHUB_REF_NAME" \
+            --status success --json databaseId --jq '.[0].databaseId')
+          test -n "$RUN_ID"
+          mkdir -p "$RUNNER_TEMP/questcraft-apk"
+          gh run download "$RUN_ID" --name QuestCraft-Mobile-debug-experimental --dir "$RUNNER_TEMP/questcraft-apk"
+          test -f "$RUNNER_TEMP/questcraft-apk/QuestCraft-Mobile-debug.apk"
+      - name: Baixar PhoneXR e extrair o runtime
+        shell: bash
+        run: |
+          set -euo pipefail
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/PhoneXR.apk" \
+            https://github.com/samrat1games/phonexr/releases/download/v2.0.1/PhoneXR-2.0.1.apk
+          echo '9f87ac99bae626a76f3480e6079882b15763cb186a99c549747dadf5e3448df0  '"$RUNNER_TEMP"'/PhoneXR.apk' | sha256sum --check
+          unzip -p "$RUNNER_TEMP/PhoneXR.apk" assets/runtime/phonexr-runtime.apk > "$RUNNER_TEMP/phonexr-runtime.apk"
+          test -s "$RUNNER_TEMP/phonexr-runtime.apk"
+      - name: Ativar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Tentar abrir o port no emulador
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          GH_TOKEN: ${{ github.token }}
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: bash questcraft_mobile/emulator_screenshot.sh
+      - name: Guardar capturas e diagnóstico
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: questcraft-captura-emulador
+          path: capture/
+          if-no-files-found: warn
+          retention-days: 14
