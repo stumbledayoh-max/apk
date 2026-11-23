@@ -120,10 +120,19 @@ def main():
     note('Broker: ' + broker.strip())
     if 'com.xrpocket.mobile' not in broker or 'libopenxr_monado.so' not in broker:
         raise RuntimeError('Broker não publicou o runtime arm64.')
-    adb('shell', 'monkey', '-p', 'com.xrpocket.mobile', '-c', 'android.intent.category.LAUNCHER', '1')
-    time.sleep(8)
+    # A freshly booted Pixel Launcher occasionally ANRs on a busy CI runner.
+    # Start the activity explicitly and dismiss only that system ANR if it
+    # covers the test; do not hide crashes from the app under test.
+    adb('shell', 'am', 'force-stop', 'com.google.android.apps.nexuslauncher', check=False)
+    for attempt in range(3):
+        adb('shell', 'am', 'start', '-W', '-n', 'com.xrpocket.mobile/com.xrpocket.mobile.MainActivity', timeout=60)
+        time.sleep(8)
+        nodes = dump(f'launcher-{attempt}')
+        if any('XR DE BOLSO' in n.get('text', '') for n in nodes): break
+        if any('Pixel Launcher' in n.get('text', '') and 'respond' in n.get('text', '').lower() for n in nodes):
+            tap(nodes, 'Close app', 'Fechar app', 'Wait', 'Aguardar')
+            time.sleep(3)
     screenshot('launcher.png')
-    nodes = dump('launcher')
     note('Tela inicial: ' + labels(nodes))
     if not any('XR DE BOLSO' in n.get('text', '') for n in nodes): raise RuntimeError('Launcher não apareceu.')
     # Activate the camera while the launcher is visible, as required by Android.
