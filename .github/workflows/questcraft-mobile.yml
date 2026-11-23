@@ -21,8 +21,33 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
       - name: Testar adaptação do manifesto
         run: python3 -m unittest discover -s questcraft_mobile/tests -v
+      - name: Baixar modelo de mãos fixado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/questcraft-model"
+          gh api -H 'Accept: application/vnd.github.raw+json' \
+            'repos/samrat1games/phonexr/contents/orangehanding/src/main/assets/hand_landmarker.task?ref=f393ea8c3f4579995efb7402d61a2108121b0900' \
+            > "$RUNNER_TEMP/questcraft-model/hand_landmarker.task"
+          echo 'fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1  '"$RUNNER_TEMP"'/questcraft-model/hand_landmarker.task' | sha256sum --check
+      - name: Compilar ponte Android integrada
+        env:
+          QUESTCRAFT_HAND_MODEL_DIR: ${{ runner.temp }}/questcraft-model
+        shell: bash
+        run: |
+          set -o pipefail
+          if ! gradle -p questcraft_mobile/embedded --no-daemon testReleaseUnitTest assembleRelease 2>&1 | tee "$RUNNER_TEMP/embedded-build.log"; then
+            message=$(tail -n 35 "$RUNNER_TEMP/embedded-build.log" | tr '\n' ' ' | cut -c1-3500)
+            printf '::error title=Falha ao compilar suporte integrado::%s\n' "$message"
+            exit 1
+          fi
       - name: Instalar ferramentas Android
         shell: bash
         run: |

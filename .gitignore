@@ -1,6 +1,8 @@
 # Instalações, resultados e chaves locais; nunca subir APKs ou chaves ao repositório.
 node_modules/
 dist/
+.gradle/
+**/build/
 .cache/
 .questcraft-build/
 *.apk

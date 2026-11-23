@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
-"""Adaptação experimental do QuestCraft 6.0.0 para o runtime Android PhoneXR.
+"""APK experimental único do QuestCraft 6.0.0 com runtime e mãos integrados.
 
-O APK gerado NÃO contém o runtime de câmera/sensores: instale e inicie pelo
-PhoneXR. Os downloads oficiais e o loader são verificados antes da alteração.
+O runtime é baseado no Monado/PhoneXR fixado; o rastreamento usa MediaPipe.
+A instalação separada do PhoneXR não é necessária. Funcionamento não comprovado.
 """
 from __future__ import annotations
 
@@ -22,6 +22,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from xml.etree import ElementTree as ET
 
+if __package__:
+    from . import integrated
+else:
+    import integrated
+
 ANDROID = "http://schemas.android.com/apk/res/android"
 A = "{" + ANDROID + "}"
 ET.register_namespace("android", ANDROID)
@@ -36,6 +41,10 @@ LOADER_URL = (
     "app/src/main/assets/libopenxr_loader.so?ref=" + PHONEXR_COMMIT
 )
 LOADER_SHA256 = "763141820ead68e92543db0fefadca3dc5687e893072add86ab2fada7f95b3ff"
+RUNTIME_URL = (
+    "https://api.github.com/repos/samrat1games/phonexr/contents/"
+    "app/src/main/assets/runtime/phonexr-runtime.apk?ref=" + PHONEXR_COMMIT
+)
 PHONEXR_RELEASE = "https://github.com/samrat1games/phonexr/releases/tag/v2.0.1"
 RUNTIME_PACKAGE = "org.freedesktop.monado.openxr_runtime.out_of_process"
 BROKERS = ("org.khronos.openxr.runtime_broker", "org.khronos.openxr.system_runtime_broker")
@@ -272,9 +281,11 @@ def ensure_debug_keystore(path: Path, keytool: str, env: dict[str, str]) -> None
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Gera um APK experimental de QuestCraft para PhoneXR (arm64).")
+    parser = argparse.ArgumentParser(description="Gera um APK experimental único de QuestCraft para Android arm64.")
     parser.add_argument("--apk", type=Path, help="APK do usuário; sem esta opção baixa o release oficial 6.0.0")
     parser.add_argument("--loader", type=Path, help="loader OpenXR local; sem esta opção baixa o loader fixado")
+    parser.add_argument("--runtime-apk", type=Path, help="APK de origem do runtime Monado/PhoneXR fixado (não será instalado)")
+    parser.add_argument("--support-apk", type=Path, default=Path("questcraft_mobile/embedded/app/build/outputs/apk/release/app-release-unsigned.apk"), help="suporte Android compilado para integrar ao APK")
     parser.add_argument("--allow-unverified-apk", action="store_true", help="aceita APK de hash diferente (confie na origem)")
     parser.add_argument("--allow-unverified-loader", action="store_true", help="aceita loader de hash diferente (confie na origem)")
     parser.add_argument("--apktool-jar", type=Path, help="apktool.jar; sem esta opção procura apktool no PATH")
@@ -301,6 +312,13 @@ def build(args: argparse.Namespace) -> Path:
         raise BuildError("A saída não pode substituir o APK de entrada.")
     if args.loader and output == args.loader.expanduser().resolve():
         raise BuildError("A saída não pode substituir o loader de entrada.")
+    if args.runtime_apk and output == args.runtime_apk.expanduser().resolve():
+        raise BuildError("A saída não pode substituir o runtime de entrada.")
+    support = args.support_apk.expanduser().resolve()
+    if output == support:
+        raise BuildError("A saída não pode substituir o APK de suporte.")
+    if not support.is_file():
+        raise BuildError(f"APK de suporte não encontrado: {support}. Compile questcraft_mobile/embedded primeiro.")
 
     with tempfile.TemporaryDirectory(prefix="questcraft-mobile-") as tmp:
         work = Path(tmp)
@@ -318,19 +336,35 @@ def build(args: argparse.Namespace) -> Path:
         loader_hash = verify_hash(loader, LOADER_SHA256, args.allow_unverified_loader, "Loader OpenXR")
         validate_loader(loader)
 
+        runtime = args.runtime_apk.expanduser().resolve() if args.runtime_apk else work / "phonexr-runtime.apk"
+        if not args.runtime_apk:
+            print("Baixando o runtime Monado/PhoneXR fixado para integração...", flush=True)
+            download_checked(RUNTIME_URL, runtime, integrated.RUNTIME_SHA256, github_raw=True)
+        runtime_hash = verify_hash(runtime, integrated.RUNTIME_SHA256, False, "Runtime")
+
         decoded = work / "decoded"
+        runtime_decoded = work / "runtime-decoded"
         run(apktool + ["d", "-f", "-s", str(source), "-o", str(decoded)])
+        run(apktool + ["d", "-f", str(runtime), "-o", str(runtime_decoded)])
         changes = patch_manifest(decoded / "AndroidManifest.xml")
+        changes += integrated.patch_manifest(decoded / "AndroidManifest.xml")
         native = decoded / "lib"
-        if not (native / "arm64-v8a" / "libopenxr_loader.so").is_file():
+        target_loader = native / "arm64-v8a" / "libopenxr_loader.so"
+        if not target_loader.is_file():
             raise BuildError("Loader arm64 ausente depois da decodificação; o APK não foi alterado.")
-        shutil.copyfile(loader, native / "arm64-v8a" / "libopenxr_loader.so")
+        shutil.copyfile(loader, target_loader)
+        integrated.patch_loader(target_loader)
         # Avoid installing an unpatched 32-bit/x86 loader on a device with a different ABI.
         for abi in native.iterdir():
             if abi.is_dir() and abi.name != "arm64-v8a":
                 shutil.rmtree(abi)
                 changes.append(f"ABI removida (build somente arm64): {abi.name}")
-        changes.append("Loader OpenXR arm64 substituído pelo loader fixado do PhoneXR")
+        integrated.install_runtime_libs(decoded, runtime)
+        runtime_classes = integrated.install_runtime_smali(decoded, runtime_decoded)
+        helper_report = integrated.install_helper(decoded, support, runtime_classes)
+        integrated.prepare_apktool_yml(decoded / "apktool.yml")
+        changes += ["Loader OpenXR ajustado para broker privado dentro do APK",
+                    "Runtime Monado, sensores e ponte de câmera integrados no mesmo APK"]
 
         unsigned, aligned, signed = work / "unsigned.apk", work / "aligned.apk", work / "signed.apk"
         # Apktool 2.9+ uses aapt2 by default; --use-aapt2 is no longer a valid flag.
@@ -347,6 +381,14 @@ def build(args: argparse.Namespace) -> Path:
         run([apksigner, "verify", "--verbose", "--print-certs", str(signed)])
         run([zipalign, "-c", "-P", "16", "4", str(signed)])
         validate_apk(signed)
+        with zipfile.ZipFile(signed) as archive:
+            for name in ("lib/arm64-v8a/libopenxr_monado.so", "lib/arm64-v8a/libmonado-service.so", "assets/hand_landmarker.task"):
+                try:
+                    entry = archive.getinfo(name)
+                except KeyError as exc:
+                    raise BuildError(f"Arquivo integrado ausente do APK final: {name}") from exc
+                if name.endswith(".task") and entry.compress_type != zipfile.ZIP_STORED:
+                    raise BuildError("O modelo de mãos precisa estar sem compressão para o MediaPipe.")
         result_hash = sha256(signed)
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(signed, output)
@@ -359,21 +401,26 @@ def build(args: argparse.Namespace) -> Path:
             "source_sha256": source_hash,
             "loader_source": str(args.loader) if args.loader else LOADER_URL,
             "loader_sha256": loader_hash,
-            "phonexr_release": PHONEXR_RELEASE,
+            "runtime_source": str(args.runtime_apk) if args.runtime_apk else RUNTIME_URL,
+            "runtime_sha256": runtime_hash,
+            "support_sha256": sha256(support),
+            "hand_model_sha256": helper_report["model_sha256"],
+            "phonexr_source": PHONEXR_RELEASE,
+            "separate_phonexr_required": False,
             "output": output.name,
             "output_sha256": result_hash,
             "signing": "generated debug key; not the original QuestCraft signing key",
             "changes": changes,
         }
         output.with_name("build-report.json").write_text(json.dumps(report, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
-    print(f"\nAPK experimental: {output}\nSHA-256: {result_hash}\nAbra pelo PhoneXR com a câmera permitida.", flush=True)
+    print(f"\nAPK único experimental: {output}\nSHA-256: {result_hash}\nAbra pelo ícone do QuestCraft; câmera opcional.", flush=True)
     return output
 
 
 def main(argv: list[str] | None = None) -> int:
     try:
         build(parse_args(argv))
-    except (BuildError, OSError) as exc:
+    except (BuildError, integrated.IntegrationError, OSError, zipfile.BadZipFile) as exc:
         print(f"Erro: {exc}", file=sys.stderr)
         return 1
     return 0
