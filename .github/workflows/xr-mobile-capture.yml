@@ -7,6 +7,10 @@ on:
         description: 'ID da build XR de Bolso que será testada'
         type: string
         required: true
+      quick:
+        description: 'Somente diagnóstico OpenXR headless (sem testar o seletor ou a câmera)'
+        type: boolean
+        default: false
   push:
     paths:
       - '.github/workflows/xr-mobile-capture.yml'
@@ -31,6 +35,7 @@ jobs:
       - name: Baixar launcher e preparar APK descartável de teste
         env:
           GH_TOKEN: ${{ github.token }}
+          XR_TEST_QUICK: ${{ inputs.quick == true && '1' || '0' }}
         shell: bash
         run: |
           set -euo pipefail
@@ -68,7 +73,9 @@ jobs:
           export XR_HEADER_DIR="$RUNNER_TEMP/xr-headers" XR_LOADER_DIR="$RUNNER_TEMP/xr-loader"
           export XR_HAND_MODEL_DIR="$RUNNER_TEMP/xr-model" XR_HAND_TEST_IMAGE_DIR="$RUNNER_TEMP/xr-test-image"
           gradle -p xr_mobile/probe --no-daemon assembleDebug
-          gradle -p xr_mobile/android --no-daemon assembleDebug assembleDebugAndroidTest
+          if [ "$XR_TEST_QUICK" != 1 ]; then
+            gradle -p xr_mobile/android --no-daemon assembleDebug assembleDebugAndroidTest
+          fi
       - name: Ativar KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -76,6 +83,8 @@ jobs:
           sudo udevadm trigger --name-match=kvm
       - name: Exercitar seletor, instalação, OBB, sensores e broker
         uses: reactivecircus/android-emulator-runner@v2
+        env:
+          XR_TEST_QUICK: ${{ inputs.quick == true && '1' || '0' }}
         with:
           api-level: 35
           target: google_apis

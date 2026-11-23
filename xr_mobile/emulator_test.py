@@ -90,12 +90,53 @@ def screenshot(name):
         subprocess.run(['adb', 'exec-out', 'screencap', '-p'], stdout=f, check=False, timeout=30)
 
 
+def verify_openxr(log):
+    xr = [line for line in log.splitlines() if 'XRProbe' in line or 'XrPocketHands' in line or 'monado-ipc-client' in line or 'MonadoImpl' in line]
+    (OUT / 'logcat-resumo.txt').write_text('\n'.join(xr) + '\n', encoding='utf-8')
+    relevant = [line for line in xr if 'XRProbe' in line or 'Modelo de mãos' in line or 'Câmera de mãos' in line]
+    note('Runtime e mãos: ' + ' '.join(relevant)[-4500:])
+    if not any('BROKER com.xrpocket.mobile' in line for line in xr): raise RuntimeError('Fixture não consultou o broker.')
+    for cycle in range(1, 4):
+        for operation in ('CREATE_INSTANCE', 'GET_SYSTEM', 'DESTROY_INSTANCE'):
+            marker = f'{operation} cycle={cycle} result=0'
+            if not any(marker in line for line in xr): raise RuntimeError('OpenXR não concluiu: ' + marker)
+    if not any('ALL_CYCLES_OK' in line for line in xr): raise RuntimeError('OpenXR não concluiu todos os ciclos.')
+    if not any('INPUTS_OK' in line for line in xr):
+        detail = ' | '.join(line for line in xr if 'INPUT_' in line)[-1000:]
+        raise RuntimeError('Teste OpenXR sem renderização não confirmou entradas sintéticas e movimento: ' + detail)
+    if not adb('shell', 'pidof', 'com.xrpocket.probe', check=False).strip():
+        raise RuntimeError('Processo de teste morreu após encerrar o OpenXR.')
+    if any(('Fatal signal' in line and '(.xrpocket.probe)' in line)
+           or ('F/DEBUG' in line and 'Cmdline: com.xrpocket.probe' in line)
+           for line in log.splitlines()):
+        raise RuntimeError('O cliente de teste sofreu falha nativa.')
+    return xr
+
+
+def quick_probe(host, probe):
+    note('Diagnóstico rápido: somente OpenXR com entrada sintética e giroscópio virtual.')
+    adb('install', '-r', str(host))
+    adb('install', '-r', str(probe))
+    adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP', check=False)
+    adb('shell', 'wm', 'dismiss-keyguard', check=False)
+    adb('emu', 'sensor', 'set', 'gyroscope', '0.4:0.2:0.1', check=False)
+    adb('logcat', '-c', check=False)
+    adb('shell', 'am', 'start', '-W', '-n', 'com.xrpocket.probe/com.xrpocket.probe.ProbeActivity', timeout=60)
+    time.sleep(90)
+    screenshot('probe.png')
+    verify_openxr(adb('logcat', '-d', '-v', 'brief', timeout=50))
+    note('Instâncias, entrada sintética e movimento virtual confirmados; não é gameplay.')
+
+
 def main():
     temp = Path(os.environ['RUNNER_TEMP'])
     host = temp / 'xr-apk/XR-de-Bolso-debug.apk'
     probe = Path('xr_mobile/probe/app/build/outputs/apk/debug/app-debug.apk')
     note('Teste automatizado em emulador descartável; não é teste físico nem gameplay.')
     note('ABI: ' + adb('shell', 'getprop', 'ro.product.cpu.abilist').strip())
+    if os.environ.get('XR_TEST_QUICK') == '1':
+        quick_probe(host, probe)
+        return
     # Run the actual MediaPipe model and HandsMath on a reference photo in the
     # debug test target. It does not validate a live camera or physical gestures.
     debug_host = Path('xr_mobile/android/app/build/outputs/apk/debug/app-debug.apk')
@@ -193,24 +234,7 @@ def main():
     time.sleep(65); screenshot('probe.png')
     note('Tela da fixture: ' + labels(dump('probe')))
     log = adb('logcat', '-d', '-v', 'brief', timeout=50)
-    xr = [line for line in log.splitlines() if 'XRProbe' in line or 'XrPocketHands' in line or 'monado-ipc-client' in line or 'MonadoImpl' in line]
-    (OUT / 'logcat-resumo.txt').write_text('\n'.join(xr) + '\n', encoding='utf-8')
-    note('Runtime e mãos: ' + ' '.join(xr[-40:])[:4000])
-    if not any('BROKER com.xrpocket.mobile' in line for line in xr): raise RuntimeError('Fixture não consultou o broker.')
-    for cycle in range(1, 4):
-        for operation in ('CREATE_INSTANCE', 'GET_SYSTEM', 'DESTROY_INSTANCE'):
-            marker = f'{operation} cycle={cycle} result=0'
-            if not any(marker in line for line in xr): raise RuntimeError('OpenXR não concluiu: ' + marker)
-    if not any('ALL_CYCLES_OK' in line for line in xr): raise RuntimeError('OpenXR não concluiu todos os ciclos.')
-    if not any('INPUTS_OK' in line for line in xr):
-        detail = ' | '.join(line for line in xr if 'INPUT_' in line)[-1000:]
-        raise RuntimeError('Teste OpenXR sem renderização não confirmou entradas sintéticas e movimento: ' + detail)
-    if not adb('shell', 'pidof', 'com.xrpocket.probe', check=False).strip():
-        raise RuntimeError('Processo de teste morreu após encerrar o OpenXR.')
-    if any(('Fatal signal' in line and '(.xrpocket.probe)' in line)
-           or ('F/DEBUG' in line and 'Cmdline: com.xrpocket.probe' in line)
-           for line in log.splitlines()):
-        raise RuntimeError('O cliente de teste sofreu falha nativa.')
+    xr = verify_openxr(log)
     if not all(any(marker in line for line in xr) for marker in ('Modelo de mãos carregado', 'Câmera de mãos iniciada')):
         raise RuntimeError('Câmera ou modelo de mãos não iniciaram.')
     note('OpenXR: 3 instâncias criadas, consultadas e encerradas sem crash observado; renderização não testada.')
