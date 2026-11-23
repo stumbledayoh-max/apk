@@ -141,7 +141,7 @@ def quick_probe(host, probe):
 
 def main():
     temp = Path(os.environ['RUNNER_TEMP'])
-    host = temp / 'xr-apk/XR-de-Bolso-debug.apk'
+    host = temp / 'xr-apk/BigXR-debug.apk'
     probe = Path('xr_mobile/probe/app/build/outputs/apk/debug/app-debug.apk')
     note('Teste automatizado em emulador descartável; não é teste físico nem gameplay.')
     note('ABI: ' + adb('shell', 'getprop', 'ro.product.cpu.abilist').strip())
@@ -180,13 +180,13 @@ def main():
         adb('shell', 'am', 'start', '-W', '-n', 'com.xrpocket.mobile/com.xrpocket.mobile.MainActivity', timeout=60)
         time.sleep(8)
         nodes = dump(f'launcher-{attempt}')
-        if any('XR DE BOLSO' in n.get('text', '') for n in nodes): break
+        if any('BIGXR' in n.get('text', '') for n in nodes): break
         if any('Pixel Launcher' in n.get('text', '') and 'respond' in n.get('text', '').lower() for n in nodes):
             tap(nodes, 'Close app', 'Fechar app', 'Wait', 'Aguardar')
             time.sleep(3)
     screenshot('launcher.png')
     note('Tela inicial: ' + labels(nodes))
-    if not any('XR DE BOLSO' in n.get('text', '') for n in nodes): raise RuntimeError('Launcher não apareceu.')
+    if not any('BIGXR' in n.get('text', '') for n in nodes): raise RuntimeError('Launcher não apareceu.')
     # Activate the camera while the launcher is visible, as required by Android.
     if not find_button('Ativar e testar mãos', start='hands'):
         raise RuntimeError('Botão de mãos não encontrado.')
@@ -272,5 +272,5 @@ if __name__ == '__main__':
             note('Log selecionado: ' + ' '.join(relevant[-20:])[:3500])
         except Exception: pass
         (OUT / 'diagnostico.txt').write_text('\n'.join(LOG) + '\n', encoding='utf-8')
-        print('::notice title=Teste XR de Bolso::' + ' | '.join(LOG)[-6000:].replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D'), flush=True)
+        print('::notice title=Teste BigXR::' + ' | '.join(LOG)[-6000:].replace('%', '%25').replace('\n', '%0A').replace('\r', '%0D'), flush=True)
     sys.exit(code)

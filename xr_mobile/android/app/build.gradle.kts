@@ -24,6 +24,9 @@ android {
     sourceSets["main"].assets.srcDir(
         System.getenv("XR_HAND_MODEL_DIR") ?: "src/main/assets"
     )
+    sourceSets["main"].assets.srcDir(
+        System.getenv("XR_INJECTION_ASSETS_DIR") ?: "src/main/injection-assets"
+    )
     sourceSets["androidTest"].assets.srcDir(
         System.getenv("XR_HAND_TEST_IMAGE_DIR") ?: "src/androidTest/assets"
     )
@@ -37,6 +40,8 @@ android {
 dependencies {
     implementation("androidx.core:core:1.15.0")
     implementation("com.google.mediapipe:tasks-vision:0.10.35")
+    implementation(files(System.getenv("XR_ARSCLIB_JAR") ?: "libs/ARSCLib-1.4.0.jar"))
+    implementation("com.android.tools.build:apksig:8.7.3")
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test:runner:1.6.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")

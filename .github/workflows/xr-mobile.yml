@@ -1,4 +1,4 @@
-name: XR de Bolso (Android experimental)
+name: BigXR (Android experimental)
 
 on:
   workflow_dispatch:
@@ -41,9 +41,27 @@ jobs:
             -o "$RUNNER_TEMP/phonexr-runtime.apk" \
             'https://api.github.com/repos/samrat1games/phonexr/contents/app/src/main/assets/runtime/phonexr-runtime.apk?ref=f393ea8c3f4579995efb7402d61a2108121b0900'
           echo '56dd0f53317e1e70d240d4de39217f7553011a04b1d4cf22a637de6d1ebf7fa8  '"$RUNNER_TEMP/phonexr-runtime.apk" | sha256sum -c -
-      - name: Compilar launcher nativo e testar lógica de mãos e OBB
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/ARSCLib.jar" \
+            'https://github.com/REAndroid/ARSCLib/releases/download/V1.4.0/ARSCLib-1.4.0.jar'
+          echo '0cc95b160ba4c731a5cadb455f32b79f4e64b4160bc5ec3e5183ea3676b385ce  '"$RUNNER_TEMP/ARSCLib.jar" | sha256sum -c -
+          curl --fail --location --retry 3 -o "$RUNNER_TEMP/apktool.jar" \
+            'https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar'
+      - name: Preparar suporte integrado para o APK do jogo
         env:
           XR_HAND_MODEL_DIR: ${{ runner.temp }}/xr-model
+        shell: bash
+        run: |
+          set -euo pipefail
+          gradle -p xr_mobile/embedded --no-daemon assembleRelease
+          python3 xr_mobile/build_payload.py \
+            --helper xr_mobile/embedded/app/build/outputs/apk/release/app-release-unsigned.apk \
+            --runtime "$RUNNER_TEMP/phonexr-runtime.apk" --apktool-jar "$RUNNER_TEMP/apktool.jar" \
+            --output "$RUNNER_TEMP/xr-injection"
+      - name: Compilar BigXR nativo e testar lógica de mãos, APK e OBB
+        env:
+          XR_HAND_MODEL_DIR: ${{ runner.temp }}/xr-model
+          XR_INJECTION_ASSETS_DIR: ${{ runner.temp }}/xr-injection
+          XR_ARSCLIB_JAR: ${{ runner.temp }}/ARSCLib.jar
         shell: bash
         run: |
           set -o pipefail
@@ -56,22 +74,20 @@ jobs:
         shell: bash
         run: |
           set -o pipefail
-          curl --fail --location --retry 3 --output "$RUNNER_TEMP/apktool.jar" \
-            'https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar'
           if ! python3 xr_mobile/build_runtime.py \
             --app xr_mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk \
             --runtime "$RUNNER_TEMP/phonexr-runtime.apk" \
             --apktool-jar "$RUNNER_TEMP/apktool.jar" \
             --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
             --debug-keystore "$RUNNER_TEMP/xr-debug.p12" \
-            --output xr-mobile-build/XR-de-Bolso-debug.apk 2>&1 | tee "$RUNNER_TEMP/xr-build.log"; then
+            --output xr-mobile-build/BigXR-debug.apk 2>&1 | tee "$RUNNER_TEMP/xr-build.log"; then
             message=$(tail -n 20 "$RUNNER_TEMP/xr-build.log" | tr '\n' ' ' | cut -c1-3000)
             printf '::error title=Falha ao integrar runtime::%s\n' "$message"
             exit 1
           fi
       - uses: actions/upload-artifact@v4
         with:
-          name: XR-de-Bolso-experimental
+          name: BigXR-experimental
           path: xr-mobile-build/
           if-no-files-found: error
           retention-days: 14

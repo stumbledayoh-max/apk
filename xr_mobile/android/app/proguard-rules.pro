@@ -7,6 +7,12 @@
 -keep class com.google.mediapipe.** { *; }
 -keep class com.google.common.flogger.** { *; }
 -keep class com.google.protobuf.** { *; }
+# The APK/resource editor uses internal registries and serializers via reflection.
+-keep class com.reandroid.** { *; }
+-keep class com.android.apksig.** { *; }
+-dontwarn java.awt.**
+-dontwarn javax.imageio.**
+-dontwarn javax.xml.stream.**
 -dontwarn org.freedesktop.monado.ipc.**
 -dontwarn org.freedesktop.monado.phonexr.**
 -dontwarn com.google.auto.value.extension.memoized.Memoized

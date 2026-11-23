@@ -100,7 +100,7 @@ public final class HandService extends Service {
                     PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
             Notification notification = new Notification.Builder(this, CHANNEL)
                     .setSmallIcon(android.R.drawable.ic_menu_camera)
-                    .setContentTitle("XR de Bolso: mãos ativas")
+                    .setContentTitle("BigXR: mãos ativas")
                     .setContentText("Câmera ativa até você tocar em Parar câmera.")
                     .setContentIntent(open)
                     .setOngoing(true)

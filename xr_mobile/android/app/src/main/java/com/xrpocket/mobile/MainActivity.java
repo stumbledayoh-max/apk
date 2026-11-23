@@ -12,7 +12,12 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.ProviderInfo;
 import android.database.Cursor;
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Rect;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.hardware.Sensor;
@@ -26,9 +31,14 @@ import android.os.Environment;
 import android.os.SystemClock;
 import android.provider.OpenableColumns;
 import android.provider.Settings;
+import android.text.Editable;
+import android.text.InputFilter;
+import android.text.TextWatcher;
 import android.view.Gravity;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -40,6 +50,7 @@ import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.OutputStream;
 import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.StandardCopyOption;
@@ -49,6 +60,7 @@ import java.util.Enumeration;
 import java.util.Locale;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
 
@@ -56,6 +68,9 @@ import java.util.zip.ZipFile;
 public final class MainActivity extends Activity implements SensorEventListener {
     private static final int PICK_APK = 101, PICK_OBB = 102, INSTALL_APK = 103;
     private static final int CAMERA_PERMISSION = 104, STORAGE_PERMISSION = 105;
+    private static final int PICK_ICON = 106, SAVE_GENERATED = 107, INSTALL_GENERATED = 108;
+    private static final String BUILD_STATUS = "com.xrpocket.mobile.BUILD_STATUS";
+    private static final AtomicBoolean CREATING = new AtomicBoolean(false);
     private static final long MAX_APK = 2L * 1024 * 1024 * 1024;
     private static final long MAX_OBB = 4L * 1024 * 1024 * 1024;
     private static final String BROKER = "org.khronos.openxr.system_runtime_broker";
@@ -63,18 +78,25 @@ public final class MainActivity extends Activity implements SensorEventListener 
     private SharedPreferences prefs;
     private SensorManager sensors;
     private Sensor gyro, rotation;
-    private TextView apkInfo, obbInfo, resultInfo, sensorInfo, handsInfo, brokerInfo;
+    private TextView apkInfo, obbInfo, resultInfo, sensorInfo, handsInfo, brokerInfo, iconInfo, createdInfo;
     private HandSkeletonView handView;
+    private ImageView iconPreview;
+    private EditText gameName;
     private Button installButton, copyButton, playButton, selectApkButton, selectObbButton;
+    private Button iconButton, clearIconButton, clearObbButton, createButton, saveButton, installCreatedButton;
     private String selectedPackage, selectedLabel, obbName;
     private Uri obbUri;
     private boolean busy, handsStarted;
     private long lastSensorUi;
-    private File stagedApk;
+    private File stagedApk, stagedIcon, generatedApk;
 
     private final BroadcastReceiver handsReceiver = new BroadcastReceiver() {
         @Override public void onReceive(Context context, Intent intent) {
-            if (HandService.ACTION_STOPPED.equals(intent.getAction())) {
+            if (BUILD_STATUS.equals(intent.getAction())) {
+                String message = intent.getStringExtra("message");
+                if (message != null) createdInfo.setText(message);
+                if (intent.getBooleanExtra("finished", false)) { setBusy(false); refreshCreated(); }
+            } else if (HandService.ACTION_STOPPED.equals(intent.getAction())) {
                 handsStarted = false;
                 handView.update(null, null);
                 handsInfo.setText("Câmera parada. Ative novamente para testar ou usar mãos.");
@@ -98,7 +120,10 @@ public final class MainActivity extends Activity implements SensorEventListener 
         String savedObb = prefs.getString("obb_uri", null);
         if (savedObb != null) obbUri = Uri.parse(savedObb);
         obbName = prefs.getString("obb_name", null);
-        stagedApk = new File(new File(getCacheDir(), "staged"), "selected.apk");
+        File staged = new File(getCacheDir(), "staged");
+        stagedApk = new File(staged, "selected.apk");
+        stagedIcon = new File(staged, "icon.png");
+        generatedApk = new File(staged, "BigXR-jogo.apk");
         sensors = (SensorManager) getSystemService(SENSOR_SERVICE);
         gyro = sensors.getDefaultSensor(Sensor.TYPE_GYROSCOPE);
         rotation = sensors.getDefaultSensor(Sensor.TYPE_GAME_ROTATION_VECTOR);
@@ -106,9 +131,12 @@ public final class MainActivity extends Activity implements SensorEventListener 
         buildUi();
         IntentFilter filter = new IntentFilter(HandService.ACTION_PREVIEW);
         filter.addAction(HandService.ACTION_STOPPED);
+        filter.addAction(BUILD_STATUS);
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(handsReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
         else registerReceiver(handsReceiver, filter);
-        refreshSelection();
+        refreshSelection(); refreshIcon(); refreshCreated();
+        setBusy(CREATING.get());
+        if (CREATING.get()) createdInfo.setText("Criando a cópia em segundo plano…");
         refreshBroker();
     }
 
@@ -143,21 +171,51 @@ public final class MainActivity extends Activity implements SensorEventListener 
         ScrollView scroll = new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(Color.rgb(10, 19, 20));
         LinearLayout body = new LinearLayout(this); body.setOrientation(LinearLayout.VERTICAL); body.setPadding(dp(20), dp(32), dp(20), dp(32));
         scroll.addView(body); setContentView(scroll);
-        body.addView(text("XR DE BOLSO  /  EXPERIMENTAL", 11, Color.rgb(123, 215, 183), true)); gap(body, 8);
+        body.addView(text("BIGXR  /  EXPERIMENTAL", 11, Color.rgb(123, 215, 183), true)); gap(body, 8);
         body.addView(text("Seus jogos, em XR.", 29, white, true)); gap(body, 8);
-        body.addView(text("Escolha um APK e, se necessário, um OBB. O Android instala o jogo com sua confirmação. O runtime Monado fica neste app.", 15, muted, false)); gap(body, 14);
-        brokerInfo = text("Verificando runtime…", 13, muted, false); body.addView(brokerInfo); gap(body, 16);
+        body.addView(text("Crie uma cópia experimental de um APK que você tem direito de usar. O jogo, Monado e a ponte de mãos ficam no mesmo APK criado.", 15, muted, false)); gap(body, 14);
 
         LinearLayout game = card(body, "01 / JOGO", "Escolha os arquivos");
         apkInfo = text("Nenhum APK selecionado.", 14, muted, false); game.addView(apkInfo); gap(game, 12);
         selectApkButton = button("Selecionar APK", true, v -> chooseFile(false)); addButton(game, selectApkButton);
         obbInfo = text("OBB é opcional.", 14, muted, false); game.addView(obbInfo); gap(game, 10);
         selectObbButton = button("Selecionar OBB (opcional)", false, v -> chooseFile(true)); addButton(game, selectObbButton);
-        installButton = button("Instalar jogo", false, v -> installSelected()); addButton(game, installButton);
-        copyButton = button("Copiar OBB para o jogo", false, v -> requestObbCopy()); addButton(game, copyButton);
+        clearObbButton = button("Remover OBB selecionado", false, v -> clearObb()); addButton(game, clearObbButton);
         resultInfo = text("", 13, muted, false); game.addView(resultInfo);
 
-        LinearLayout tracking = card(body, "02 / SENSORES", "Mãos e movimento");
+        LinearLayout creator = card(body, "02 / CRIAR", "Personalize seu APK");
+        creator.addView(text("Nome do jogo", 14, white, true));
+        gameName = new EditText(this); gameName.setSingleLine(true); gameName.setTextSize(16);
+        gameName.setTextColor(white); gameName.setHintTextColor(muted); gameName.setHint("Digite o nome do jogo");
+        gameName.setContentDescription("Nome do jogo"); gameName.setFilters(new InputFilter[]{new InputFilter.LengthFilter(60)});
+        gameName.setText(prefs.getString("custom_label", selectedLabel == null ? "" : selectedLabel));
+        creator.addView(gameName, new LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(54))); gap(creator, 8);
+        gameName.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
+            @Override public void onTextChanged(CharSequence s, int start, int before, int count) {
+                prefs.edit().putString("custom_label", s.toString()).apply(); invalidateCreated();
+            }
+            @Override public void afterTextChanged(Editable s) { }
+        });
+        iconInfo = text("Ícone original do jogo.", 13, muted, false); creator.addView(iconInfo); gap(creator, 6);
+        iconPreview = new ImageView(this); iconPreview.setContentDescription("Prévia do ícone escolhido");
+        iconPreview.setScaleType(ImageView.ScaleType.CENTER_CROP);
+        creator.addView(iconPreview, new LinearLayout.LayoutParams(dp(72), dp(72))); gap(creator, 8);
+        iconButton = button("Escolher foto para o ícone", false, v -> chooseIcon()); addButton(creator, iconButton);
+        clearIconButton = button("Usar ícone original", false, v -> clearIcon()); addButton(creator, clearIconButton);
+        creator.addView(text("A cópia terá outra assinatura. Licenças, integridade e compatibilidade não são garantidas. O OBB selecionado é incluído se couber no APK.", 12, muted, false)); gap(creator, 10);
+        createButton = button("Criar APK com BigXR", true, v -> confirmCreate()); addButton(creator, createButton);
+        createdInfo = text("Ainda não há APK criado.", 13, muted, false); creator.addView(createdInfo); gap(creator, 10);
+        saveButton = button("Salvar APK criado", false, v -> saveCreated()); addButton(creator, saveButton);
+        installCreatedButton = button("Instalar APK criado", false, v -> installCreated()); addButton(creator, installCreatedButton);
+
+        LinearLayout legacy = card(body, "03 / ALTERNATIVO", "Instalar APK original");
+        legacy.addView(text("Este modo antigo instala o jogo separado, sem integrar o BigXR. Use Criar APK acima para a versão independente.", 12, muted, false)); gap(legacy, 10);
+        brokerInfo = text("Verificando runtime…", 13, muted, false); legacy.addView(brokerInfo); gap(legacy, 10);
+        installButton = button("Instalar jogo", false, v -> installSelected()); addButton(legacy, installButton);
+        copyButton = button("Copiar OBB para o jogo", false, v -> requestObbCopy()); addButton(legacy, copyButton);
+
+        LinearLayout tracking = card(body, "04 / SENSORES", "Mãos e movimento");
         sensorInfo = text("Verificando giroscópio…", 13, muted, false); tracking.addView(sensorInfo); gap(tracking, 10);
         handsInfo = text("Câmera parada.", 13, muted, false); tracking.addView(handsInfo); gap(tracking, 8);
         handView = new HandSkeletonView(this);
@@ -166,7 +224,7 @@ public final class MainActivity extends Activity implements SensorEventListener 
         addButton(tracking, button("Parar câmera", false, v -> stopHands()));
         tracking.addView(text("A câmera traseira permanece ativa até você pará-la aqui ou na notificação. A prévia acima mostra pontos, não imagens.", 12, muted, false));
 
-        LinearLayout launch = card(body, "03 / ABRIR", "Iniciar jogo");
+        LinearLayout launch = card(body, "05 / ABRIR", "Abrir jogo separado");
         launch.addView(text("Somente jogos ARM64 que descubram runtimes OpenXR podem usar o Monado. Jogos de Quest ou jogos comuns podem não ser compatíveis.", 13, muted, false)); gap(launch, 12);
         playButton = button("Abrir jogo instalado", true, v -> openGame()); addButton(launch, playButton);
         launch.addView(text("As mãos são convertidas em controles aproximados; não são um rastreamento nativo de todos os dedos. Teste em celular físico ainda é necessário.", 12, muted, false));
@@ -203,13 +261,56 @@ public final class MainActivity extends Activity implements SensorEventListener 
     }
     private void setBusy(boolean value) {
         busy = value;
-        for (Button button : new Button[]{installButton, copyButton, playButton, selectApkButton, selectObbButton}) button.setEnabled(!value);
+        for (Button button : new Button[]{installButton, copyButton, playButton, selectApkButton, selectObbButton,
+                iconButton, clearIconButton, clearObbButton, createButton}) if (button != null) button.setEnabled(!value);
+        if (gameName != null) gameName.setEnabled(!value);
+        refreshCreated();
     }
     private void showResult(String message) { if (!isFinishing() && !isDestroyed()) resultInfo.setText(message); }
     private void refreshSelection() {
         apkInfo.setText(selectedPackage == null ? "Nenhum APK selecionado." :
-                (selectedLabel == null ? "Jogo" : selectedLabel) + "\n" + selectedPackage + (stagedApk.isFile() ? " · APK pronto" : " · selecione o APK novamente para instalar"));
+                (selectedLabel == null ? "Jogo" : selectedLabel) + "\n" + selectedPackage + (stagedApk.isFile() ? " · APK pronto" : " · selecione o APK novamente"));
         obbInfo.setText(obbUri == null ? "OBB é opcional." : "OBB: " + (obbName == null ? "arquivo selecionado" : obbName));
+    }
+    private void refreshIcon() {
+        boolean exists = stagedIcon.isFile();
+        iconInfo.setText(exists ? "Foto selecionada como ícone." : "Ícone original do jogo.");
+        iconPreview.setImageBitmap(exists ? BitmapFactory.decodeFile(stagedIcon.getAbsolutePath()) : null);
+        iconPreview.setVisibility(exists ? View.VISIBLE : View.GONE);
+    }
+    private void refreshCreated() {
+        if (saveButton == null || installCreatedButton == null || generatedApk == null) return;
+        String pkg = prefs.getString("generated_package", null);
+        boolean ready = generatedApk.isFile() && PackageFiles.validPackage(pkg);
+        saveButton.setEnabled(ready && !busy); installCreatedButton.setEnabled(ready && !busy);
+        if (ready && !busy) {
+            createdInfo.setText("APK pronto para " + pkg + ". SHA-256: " + prefs.getString("generated_sha256", "") +
+                    "\nSalve-o antes de limpar o cache do aplicativo.");
+        }
+    }
+    private void invalidateCreated() {
+        if (generatedApk == null || prefs == null) return;
+        generatedApk.delete();
+        prefs.edit().remove("generated_package").remove("generated_sha256").apply();
+        if (createdInfo != null) createdInfo.setText("Personalização alterada. Crie uma nova cópia.");
+        refreshCreated();
+    }
+    private void clearObb() {
+        if (busy) return;
+        obbUri = null; obbName = null;
+        prefs.edit().remove("obb_uri").remove("obb_name").apply();
+        invalidateCreated(); refreshSelection(); showResult("OBB removido da seleção.");
+    }
+    private void clearIcon() {
+        if (busy) return;
+        stagedIcon.delete(); invalidateCreated(); refreshIcon(); showResult("O ícone original será mantido.");
+    }
+    private void chooseIcon() {
+        if (busy) return;
+        Intent pick = new Intent(Intent.ACTION_OPEN_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE).setType("image/*");
+        pick.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION | Intent.FLAG_GRANT_PERSISTABLE_URI_PERMISSION);
+        try { startActivityForResult(pick, PICK_ICON); }
+        catch (RuntimeException error) { showResult("Não foi possível abrir o seletor de imagens."); }
     }
     private void chooseFile(boolean obb) {
         if (busy) return;
@@ -232,7 +333,15 @@ public final class MainActivity extends Activity implements SensorEventListener 
     }
     @Override protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
-        if ((requestCode == PICK_APK || requestCode == PICK_OBB) && resultCode == RESULT_OK && data != null && data.getData() != null) {
+        if (requestCode == PICK_ICON && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            persistRead(data, data.getData()); importIcon(data.getData());
+        } else if (requestCode == SAVE_GENERATED && resultCode == RESULT_OK && data != null && data.getData() != null) {
+            exportCreated(data.getData());
+        } else if (requestCode == INSTALL_GENERATED) {
+            createdInfo.setText(resultCode == RESULT_OK
+                    ? "O Android confirmou a instalação. Abra o ícone do jogo; ele não precisa do BigXR separado."
+                    : "A instalação não foi concluída. Assinatura, permissões ou compatibilidade podem ter impedido a instalação.");
+        } else if ((requestCode == PICK_APK || requestCode == PICK_OBB) && resultCode == RESULT_OK && data != null && data.getData() != null) {
             Uri uri = data.getData(); persistRead(data, uri);
             if (requestCode == PICK_APK) importApk(uri);
             else {
@@ -243,7 +352,8 @@ public final class MainActivity extends Activity implements SensorEventListener 
                 }
                 obbUri = uri; obbName = name;
                 prefs.edit().putString("obb_uri", uri.toString()).putString("obb_name", name).apply();
-                refreshSelection(); showResult("OBB selecionado. Instale o jogo e depois copie o OBB.");
+                invalidateCreated(); refreshSelection();
+                showResult("OBB selecionado. Ele será incluído no APK criado, se houver espaço.");
             }
         } else if (requestCode == INSTALL_APK) {
             if (resultCode == RESULT_OK && isInstalled()) {
@@ -286,6 +396,7 @@ public final class MainActivity extends Activity implements SensorEventListener 
                 prefs.edit().putString("package", pkg).putString("label", appLabel).apply();
                 runOnUiThread(() -> {
                     selectedPackage = pkg; selectedLabel = appLabel;
+                    invalidateCreated(); gameName.setText(appLabel);
                     if (obbUri != null && !PackageFiles.validObb(obbName, pkg)) {
                         obbUri = null; obbName = null; prefs.edit().remove("obb_uri").remove("obb_name").apply();
                     }
@@ -300,6 +411,132 @@ public final class MainActivity extends Activity implements SensorEventListener 
             }
         });
     }
+    private void importIcon(Uri uri) {
+        setBusy(true); showResult("Preparando foto do ícone…");
+        io.execute(() -> {
+            File source = null, png = null;
+            try {
+                File dir = stagedIcon.getParentFile();
+                if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Não foi possível criar o cache");
+                source = File.createTempFile("image-", ".tmp", dir);
+                try (InputStream in = getContentResolver().openInputStream(uri); FileOutputStream out = new FileOutputStream(source)) {
+                    if (in == null) throw new IOException("Imagem não disponível");
+                    copyBounded(in, out, 20L * 1024 * 1024);
+                }
+                BitmapFactory.Options bounds = new BitmapFactory.Options(); bounds.inJustDecodeBounds = true;
+                BitmapFactory.decodeFile(source.getAbsolutePath(), bounds);
+                if (bounds.outWidth <= 0 || bounds.outHeight <= 0 || bounds.outWidth > 32768 || bounds.outHeight > 32768)
+                    throw new IOException("Formato ou dimensões da imagem não são suportados");
+                BitmapFactory.Options options = new BitmapFactory.Options(); options.inSampleSize = 1;
+                while (Math.max(bounds.outWidth, bounds.outHeight) / options.inSampleSize > 1024) options.inSampleSize *= 2;
+                Bitmap bitmap = BitmapFactory.decodeFile(source.getAbsolutePath(), options);
+                if (bitmap == null) throw new IOException("Não foi possível decodificar a imagem");
+                Bitmap square = Bitmap.createBitmap(512, 512, Bitmap.Config.ARGB_8888);
+                try {
+                    int edge = Math.min(bitmap.getWidth(), bitmap.getHeight());
+                    int x = (bitmap.getWidth() - edge) / 2, y = (bitmap.getHeight() - edge) / 2;
+                    Canvas canvas = new Canvas(square); Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
+                    canvas.drawBitmap(bitmap, new Rect(x, y, x + edge, y + edge), new Rect(0, 0, 512, 512), paint);
+                    png = File.createTempFile("icon-", ".png", dir);
+                    try (FileOutputStream out = new FileOutputStream(png)) {
+                        if (!square.compress(Bitmap.CompressFormat.PNG, 100, out)) throw new IOException("Não foi possível criar o ícone");
+                        out.getFD().sync();
+                    }
+                } finally { bitmap.recycle(); square.recycle(); }
+                moveReplace(png, stagedIcon); png = null;
+                runOnUiThread(() -> { invalidateCreated(); refreshIcon(); setBusy(false); showResult("Foto pronta para usar como ícone."); });
+            } catch (OutOfMemoryError error) {
+                runOnUiThread(() -> { setBusy(false); showResult("Memória insuficiente para abrir a foto."); });
+            } catch (Exception error) {
+                runOnUiThread(() -> { setBusy(false); showResult("Não foi possível usar a foto: " + error.getMessage()); });
+            } finally {
+                if (source != null) source.delete(); if (png != null) png.delete();
+            }
+        });
+    }
+
+    private void confirmCreate() {
+        if (busy || CREATING.get()) return;
+        if (!PackageFiles.validPackage(selectedPackage) || !stagedApk.isFile()) { showResult("Selecione primeiro um APK válido."); return; }
+        String name = gameName.getText().toString().trim();
+        if (name.isEmpty()) { showResult("Informe o nome que aparecerá no ícone."); return; }
+        new AlertDialog.Builder(this).setTitle("Criar cópia com BigXR?")
+                .setMessage("Use somente um APK que você tenha direito de modificar. A cópia será assinada com uma chave local diferente da original. Para instalá-la, pode ser necessário desinstalar o jogo original, o que pode apagar seus dados. Compras, licença e verificações de integridade podem falhar. Apenas alguns loaders OpenXR ARM64 são aceitos; criar o APK não garante que o jogo funcione.")
+                .setNegativeButton("Cancelar", null).setPositiveButton("Criar cópia", (dialog, which) -> createGame()).show();
+    }
+    private static void buildMessage(Context context, String message, boolean finished) {
+        context.sendBroadcast(new Intent(BUILD_STATUS).setPackage(context.getPackageName())
+                .putExtra("message", message).putExtra("finished", finished));
+    }
+    private void createGame() {
+        if (busy || !CREATING.compareAndSet(false, true)) return;
+        final Context context = getApplicationContext();
+        final File input = stagedApk, icon = stagedIcon.isFile() ? stagedIcon : null, finalApk = generatedApk;
+        final String pkg = selectedPackage, label = gameName.getText().toString(), name = obbName;
+        final Uri selectedObb = obbUri;
+        if (handsStarted) stopHands();
+        setBusy(true); createdInfo.setText("Iniciando a criação… mantenha o aplicativo aberto.");
+        io.execute(() -> {
+            File candidate = null; String message;
+            try {
+                File dir = finalApk.getParentFile();
+                if (!dir.isDirectory() && !dir.mkdirs()) throw new IOException("Não foi possível criar o cache");
+                candidate = File.createTempFile("new-bigxr-", ".apk", dir);
+                if (!candidate.delete()) throw new IOException("Não foi possível preparar o arquivo de saída");
+                ApkCreator.Result result = ApkCreator.create(context, input, pkg, label, icon, selectedObb, name,
+                        candidate, status -> buildMessage(context, status, false));
+                moveReplace(candidate, finalApk); candidate = null;
+                context.getSharedPreferences("xr-launcher", MODE_PRIVATE).edit()
+                        .putString("generated_package", result.packageName).putString("generated_sha256", result.sha256).apply();
+                message = "APK criado e verificado. Salve-o ou peça ao Android para instalá-lo.";
+            } catch (OutOfMemoryError error) {
+                message = "Memória insuficiente para criar este APK. Tente um arquivo menor.";
+            } catch (Exception | LinkageError error) {
+                android.util.Log.e("BigXRCreator", "Falha ao criar APK", error);
+                message = "Não foi possível criar o APK: " + (error.getMessage() == null ? error.getClass().getSimpleName() : error.getMessage());
+            } finally {
+                if (candidate != null) candidate.delete();
+                CREATING.set(false);
+            }
+            buildMessage(context, message, true);
+        });
+    }
+    private void saveCreated() {
+        if (busy || !generatedApk.isFile() || !PackageFiles.validPackage(prefs.getString("generated_package", null))) return;
+        String filename = gameName.getText().toString().trim().replaceAll("[^a-zA-Z0-9._-]+", "-");
+        if (filename.isEmpty()) filename = "jogo";
+        Intent save = new Intent(Intent.ACTION_CREATE_DOCUMENT).addCategory(Intent.CATEGORY_OPENABLE)
+                .setType("application/vnd.android.package-archive").putExtra(Intent.EXTRA_TITLE, "BigXR-" + filename + ".apk");
+        try { startActivityForResult(save, SAVE_GENERATED); }
+        catch (RuntimeException error) { createdInfo.setText("Não foi possível abrir o seletor para salvar."); }
+    }
+    private void exportCreated(Uri destination) {
+        if (busy || !generatedApk.isFile()) return;
+        setBusy(true); createdInfo.setText("Salvando APK criado…");
+        io.execute(() -> {
+            try (InputStream in = new FileInputStream(generatedApk); OutputStream out = getContentResolver().openOutputStream(destination, "w")) {
+                if (out == null) throw new IOException("Destino não disponível");
+                byte[] block = new byte[256 * 1024]; int n;
+                while ((n = in.read(block)) != -1) if (n > 0) out.write(block, 0, n);
+                out.flush();
+                runOnUiThread(() -> { setBusy(false); createdInfo.setText("APK salvo no local escolhido."); });
+            } catch (Exception error) {
+                runOnUiThread(() -> { setBusy(false); createdInfo.setText("Não foi possível salvar o APK: " + error.getMessage()); });
+            }
+        });
+    }
+    private void installCreated() {
+        if (busy || !generatedApk.isFile() || !PackageFiles.validPackage(prefs.getString("generated_package", null))) return;
+        if (!installerAllowed()) return;
+        if (handsStarted) stopHands();
+        try {
+            Uri uri = FileProvider.getUriForFile(this, getPackageName() + ".files", generatedApk);
+            Intent install = new Intent(Intent.ACTION_INSTALL_PACKAGE).setData(uri)
+                    .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).putExtra(Intent.EXTRA_RETURN_RESULT, true);
+            startActivityForResult(install, INSTALL_GENERATED);
+        } catch (RuntimeException error) { createdInfo.setText("Não foi possível abrir o instalador: " + error.getMessage()); }
+    }
+
     private static void copyBounded(InputStream in, FileOutputStream out, long limit) throws IOException {
         byte[] buffer = new byte[256 * 1024]; long total = 0; int count;
         while ((count = in.read(buffer)) != -1) {

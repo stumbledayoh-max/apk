@@ -164,7 +164,7 @@ def build(args: argparse.Namespace) -> None:
                 tools.run([keytool, "-genkeypair", "-keystore", str(keystore), "-storetype", "PKCS12",
                            "-storepass:env", "XR_DEBUG_PASSWORD", "-keypass:env", "XR_DEBUG_PASSWORD",
                            "-alias", "xr-debug", "-keyalg", "RSA", "-keysize", "2048", "-validity", "10000",
-                           "-dname", "CN=XR de Bolso Debug, O=Local Debug, C=BR"], env=env)
+                           "-dname", "CN=BigXR Debug, O=Local Debug, C=BR"], env=env)
             finally:
                 os.umask(previous_umask)
         env = {**os.environ, "XR_DEBUG_PASSWORD": "android"}
@@ -198,7 +198,7 @@ def main() -> int:
     parser.add_argument("--apktool-jar", type=Path, required=True)
     parser.add_argument("--build-tools", required=True)
     parser.add_argument("--debug-keystore", type=Path, required=True)
-    parser.add_argument("--output", type=Path, default=Path("xr-mobile-build/XR-de-Bolso-debug.apk"))
+    parser.add_argument("--output", type=Path, default=Path("xr-mobile-build/BigXR-debug.apk"))
     try:
         build(parser.parse_args())
     except (tools.BuildError, integrated.IntegrationError, OSError, zipfile.BadZipFile) as error:

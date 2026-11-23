@@ -14,5 +14,5 @@ dependencyResolutionManagement {
     }
 }
 
-rootProject.name = "XrPocket"
+rootProject.name = "BigXR"
 include(":app")

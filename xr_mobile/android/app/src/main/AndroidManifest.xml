@@ -19,7 +19,7 @@
             <category android:name="org.khronos.openxr.intent.category.IMMERSIVE_HMD" />
         </intent>
     </queries>
-    <application android:label="XR de Bolso" android:theme="@android:style/Theme.Material.NoActionBar"
+    <application android:label="BigXR" android:theme="@android:style/Theme.Material.NoActionBar"
         android:extractNativeLibs="true" android:allowBackup="false" android:requestLegacyExternalStorage="true">
         <activity android:name="com.xrpocket.mobile.MainActivity" android:exported="true"
             android:screenOrientation="portrait">
