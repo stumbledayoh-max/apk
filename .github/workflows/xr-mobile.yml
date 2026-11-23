@@ -76,6 +76,15 @@ jobs:
             printf '::error title=Falha na compilação Android::%s\n' "$message"
             exit 1
           fi
+          # FileProvider must use the platform's XML interfaces, not R8-renamed
+          # copies from the upstream desktop ARSCLib jar.
+          python3 - <<'PY'
+          import zipfile
+          with zipfile.ZipFile('xr_mobile/android/app/build/prepared-libs/ARSCLib-android.jar') as jar:
+              assert not any(name.startswith('org/xmlpull/v1/') for name in jar.namelist())
+          mapping = open('xr_mobile/android/app/build/outputs/mapping/release/mapping.txt', encoding='utf-8').read()
+          assert not any(line.startswith('org.xmlpull.v1.') for line in mapping.splitlines())
+          PY
       - name: Integrar Monado e assinar APK de teste
         shell: bash
         run: |

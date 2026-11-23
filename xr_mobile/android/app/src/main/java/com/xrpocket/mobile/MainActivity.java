@@ -534,7 +534,10 @@ public final class MainActivity extends Activity implements SensorEventListener 
             Intent install = new Intent(Intent.ACTION_INSTALL_PACKAGE).setData(uri)
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).putExtra(Intent.EXTRA_RETURN_RESULT, true);
             startActivityForResult(install, INSTALL_GENERATED);
-        } catch (RuntimeException error) { createdInfo.setText("Não foi possível abrir o instalador: " + error.getMessage()); }
+        } catch (RuntimeException | LinkageError error) {
+            android.util.Log.e("BigXRCreator", "Não foi possível abrir o instalador", error);
+            createdInfo.setText("Não foi possível abrir o instalador: " + error.getMessage());
+        }
     }
 
     private static void copyBounded(InputStream in, FileOutputStream out, long limit) throws IOException {
@@ -581,7 +584,10 @@ public final class MainActivity extends Activity implements SensorEventListener 
             Intent install = new Intent(Intent.ACTION_INSTALL_PACKAGE).setData(uri)
                     .addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION).putExtra(Intent.EXTRA_RETURN_RESULT, true);
             startActivityForResult(install, INSTALL_APK);
-        } catch (RuntimeException error) { showResult("O instalador do Android não pôde ser aberto: " + error.getMessage()); }
+        } catch (RuntimeException | LinkageError error) {
+            android.util.Log.e("BigXRCreator", "Não foi possível abrir o instalador", error);
+            showResult("O instalador do Android não pôde ser aberto: " + error.getMessage());
+        }
     }
     private void requestObbCopy() {
         if (busy) return;
