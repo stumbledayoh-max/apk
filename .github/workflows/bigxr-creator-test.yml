@@ -51,10 +51,15 @@ jobs:
               "https://raw.githubusercontent.com/KhronosGroup/OpenXR-SDK/7f9285bce1ce8b69bb75554bf788666579d0c35e/include/openxr/$header"
           done
           python3 - <<'PY'
-          import os
+          import os, subprocess
           from pathlib import Path
-          from questcraft_mobile.build_apk import download_checked, LOADER_URL, LOADER_SHA256
-          download_checked(LOADER_URL, Path(os.environ['RUNNER_TEMP'])/'xr-loader/arm64-v8a/libopenxr_loader.so', LOADER_SHA256, github_raw=True)
+          from questcraft_mobile.build_apk import LOADER_URL, LOADER_SHA256, verify_hash
+          loader = Path(os.environ['RUNNER_TEMP'])/'xr-loader/arm64-v8a/libopenxr_loader.so'
+          subprocess.run(['curl', '--fail', '--location', '--retry', '5', '--retry-all-errors',
+                          '-H', 'Accept: application/vnd.github.raw+json',
+                          '-H', 'Authorization: Bearer ' + os.environ['GH_TOKEN'],
+                          '-o', str(loader), LOADER_URL], check=True)
+          verify_hash(loader, LOADER_SHA256, False, 'Loader OpenXR da fixture')
           PY
           if [ ! -d "$ANDROID_HOME/ndk/27.0.12077973" ]; then
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.0.12077973'
