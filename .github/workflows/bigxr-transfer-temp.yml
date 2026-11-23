@@ -22,6 +22,10 @@ on:
         description: 'ID do teste de captura'
         required: false
         type: string
+      log_job:
+        description: 'ID opcional do job para recuperar o log'
+        required: false
+        type: string
       key:
         description: 'Chave efêmera de transferência'
         required: true
@@ -45,6 +49,7 @@ jobs:
           set -euo pipefail
           build=$(python3 -c 'import json,os,re; x=json.load(open(os.environ["GITHUB_EVENT_PATH"]))["inputs"]["build_run"]; assert re.fullmatch(r"[0-9]+",x); print(x)')
           capture=$(python3 -c 'import json,os,re; x=json.load(open(os.environ["GITHUB_EVENT_PATH"]))["inputs"].get("capture_run", ""); assert not x or re.fullmatch(r"[0-9]+",x); print(x)')
+          log_job=$(python3 -c 'import json,os,re; x=json.load(open(os.environ["GITHUB_EVENT_PATH"]))["inputs"].get("log_job", ""); assert not x or re.fullmatch(r"[0-9]+",x); print(x)')
           kind=$(python3 -c 'import json,os; print(json.load(open(os.environ["GITHUB_EVENT_PATH"]))["inputs"].get("build_kind", "xr"))')
           case "$kind" in
             xr) artifact=BigXR-experimental; capture_artifact=bigxr-criador-teste-emulador ;;
@@ -57,6 +62,9 @@ jobs:
           fi
           if [ -n "$capture" ]; then
             gh run download "$capture" --repo "$GITHUB_REPOSITORY" --name "$capture_artifact" --dir "$RUNNER_TEMP/transfer-capture"
+          fi
+          if [ -n "$log_job" ]; then
+            gh run view --repo "$GITHUB_REPOSITORY" --job "$log_job" --log > "$RUNNER_TEMP/transfer-capture/job-log.txt"
           fi
       - name: Transferir arquivos criptografados por objetos temporários
         shell: bash
