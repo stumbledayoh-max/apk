@@ -12,6 +12,10 @@ REPORT=capture/diagnostico.txt
   adb install -r "$RUNNER_TEMP/PhoneXR.apk" || true
   echo '--- instalação do port ---'
   adb install -r "$RUNNER_TEMP/questcraft-apk/QuestCraft-Mobile-debug.apk" || true
+  echo '--- dispensar aviso imersivo do emulador ---'
+  adb shell settings put secure immersive_mode_confirmations confirmed || true
+  adb shell input keyevent KEYCODE_WAKEUP || true
+  adb shell wm dismiss-keyguard || true
   echo '--- lançamento do port ---'
   adb shell monkey -p com.qcxr.qcxr -c android.intent.category.LAUNCHER 1 || true
 } > "$REPORT" 2>&1
@@ -19,6 +23,10 @@ REPORT=capture/diagnostico.txt
 for delay in 8 22 30; do
   sleep "$delay"
   elapsed=$(( ${elapsed:-0} + delay ))
+  if [ "$elapsed" -eq 8 ]; then
+    # Algumas imagens do Android ainda exibem a confirmação de tela cheia.
+    adb shell input keyevent KEYCODE_ENTER >/dev/null 2>&1 || true
+  fi
   {
     echo "--- foco após ${elapsed}s ---"
     adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' || true
@@ -28,42 +36,25 @@ for delay in 8 22 30; do
 done
 adb logcat -d -t 4000 -v brief > capture/logcat.txt || true
 
-# O check contém uma prévia compacta, oculta em comentário, para inspeção no
-# repositório. Não há dados pessoais: o emulador é novo e não faz login.
+# Prévia compacta para verificar se a tela realmente pertence ao port. Não há
+# dados pessoais: o emulador é novo e não faz login.
 python3 -m pip install --quiet --user --break-system-packages Pillow
 python3 - <<'PY'
 import base64
-import json
-import os
 from pathlib import Path
-
 from PIL import Image
 
-report = Path('capture/diagnostico.txt').read_text(errors='replace')[:9000]
-image = Image.open('capture/tela-30s.png') if Path('capture/tela-30s.png').exists() else Image.open('capture/tela-60s.png')
+image = Image.open('capture/tela-30s.png').convert('RGB')
 image.thumbnail((800, 800))
 output = Path('capture/preview.jpg')
-for quality in (65, 55, 45, 35, 25):
+for quality in (60, 50, 40, 30, 20):
     image.save(output, 'JPEG', quality=quality, optimize=True)
-    if output.stat().st_size < 40000:
+    if output.stat().st_size < 30000:
         break
 encoded = base64.b64encode(output.read_bytes()).decode('ascii')
-summary = 'Captura em emulador sem conta; não representa teste real em celular.\n\n```\n' + report + '\n```\n\n<!--CAPTURE_BASE64:' + encoded + '-->'
-if len(summary) > 65000:
-    summary = 'Imagem grande demais para prévia. Veja o artefato do workflow.\n\n```\n' + report + '\n```'
-payload = {
-    'name': 'Captura de inicialização — emulador',
-    'head_sha': os.environ['GITHUB_SHA'],
-    'status': 'completed',
-    'conclusion': 'neutral',
-    'output': {'title': 'Tentativa de captura do port', 'summary': summary},
-}
-Path('capture/check.json').write_text(json.dumps(payload), encoding='utf-8')
+if len(encoded) < 60000:
+    print('::notice title=PREVIA_EMULADOR_BASE64::' + encoded)
 PY
-if [ -f capture/check.json ]; then
-  gh api --method POST "repos/$GITHUB_REPOSITORY/check-runs" --input capture/check.json > capture/check-response.json || true
-  rm -f capture/check.json
-fi
 # Um resumo pequeno do diagnóstico fica visível nas anotações da execução.
 report_note=$(tr '\n' ' ' < "$REPORT" | cut -c1-1500)
 printf '::notice title=Diagnóstico do emulador::%s\n' "$report_note"
