@@ -33,6 +33,24 @@ for delay in 8 22 30; do
     adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | head -4 || true
   } >> "$REPORT" 2>&1
   adb exec-out screencap -p > "capture/tela-${elapsed}s.png" || true
+  if [ "$elapsed" -eq 8 ]; then
+    # Registrar eventuais diálogos nativos para entender o resultado da captura.
+    timeout 15s adb shell uiautomator dump /sdcard/questcraft-window.xml >/dev/null 2>&1 || true
+    adb shell cat /sdcard/questcraft-window.xml > capture/window.xml 2>/dev/null || true
+    python3 - <<'PY' >> "$REPORT" 2>&1
+import xml.etree.ElementTree as ET
+from pathlib import Path
+try:
+    root = ET.parse('capture/window.xml').getroot()
+    print('--- textos acessíveis na tela ---')
+    for node in root.iter('node'):
+        text = node.get('text', '') or node.get('content-desc', '')
+        if text:
+            print(text[:250], node.get('bounds', ''))
+except (ET.ParseError, OSError):
+    print('Nenhum diálogo acessível via UIAutomator.')
+PY
+  fi
 done
 adb logcat -d -t 4000 -v brief > capture/logcat.txt || true
 
@@ -49,11 +67,13 @@ image.thumbnail((800, 800))
 output = Path('capture/preview.jpg')
 for quality in (60, 50, 40, 30, 20):
     image.save(output, 'JPEG', quality=quality, optimize=True)
-    if output.stat().st_size < 30000:
+    if output.stat().st_size < 20000:
         break
 encoded = base64.b64encode(output.read_bytes()).decode('ascii')
-if len(encoded) < 60000:
-    print('::notice title=PREVIA_EMULADOR_BASE64::' + encoded)
+# As mensagens de anotação do GitHub são truncadas em 4096 caracteres.
+if len(encoded) <= 30000:
+    for i in range(0, len(encoded), 3300):
+        print(f'::notice title=PREVIA_EMULADOR_{i // 3300:02d}::' + encoded[i:i + 3300])
 PY
 # Um resumo pequeno do diagnóstico fica visível nas anotações da execução.
 report_note=$(tr '\n' ' ' < "$REPORT" | cut -c1-1500)
