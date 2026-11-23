@@ -64,7 +64,7 @@ jobs:
             gh run download "$capture" --repo "$GITHUB_REPOSITORY" --name "$capture_artifact" --dir "$RUNNER_TEMP/transfer-capture"
           fi
           if [ -n "$log_job" ]; then
-            gh run view --repo "$GITHUB_REPOSITORY" --job "$log_job" --log > "$RUNNER_TEMP/transfer-capture/job-log.txt"
+            gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$log_job/logs" > "$RUNNER_TEMP/transfer-capture/job-log.txt"
           fi
       - name: Transferir arquivos criptografados por objetos temporários
         shell: bash
