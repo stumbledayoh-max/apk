@@ -87,6 +87,8 @@ def create_ui(host: Path, probe: Path, temp: Path) -> Path:
     click_from_top('Criar APK com BigXR', 'create')
     time.sleep(2); nodes = ui.dump('confirm-create')
     if not ui.tap(nodes, 'Criar cópia'): raise RuntimeError('Confirmação não encontrada: ' + ui.labels(nodes))
+    # The status appears below the create button, sometimes outside the viewport.
+    time.sleep(1); ui.swipe()
     for attempt in range(80):
         time.sleep(4)
         nodes = ui.dump(f'build-{attempt:02}')
