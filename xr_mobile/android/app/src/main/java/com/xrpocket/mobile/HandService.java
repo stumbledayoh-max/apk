@@ -76,6 +76,9 @@ public final class HandService extends Service {
     private volatile HandsMath.State right = new HandsMath.State();
     private volatile long lastResult;
     private volatile boolean closing;
+    // Serialize the last preview with STOPPED so a slow in-flight inference
+    // cannot report an active camera after the service has been stopped.
+    private final Object previewLock = new Object();
     private long lastFrame;
     private long lastTimestamp;
     private long lastPreview;
@@ -241,16 +244,19 @@ public final class HandService extends Service {
                 if (physicalLeft) { nextLeft = state; previewLeft = preview; }
                 else { nextRight = state; previewRight = preview; }
             }
-            left = nextLeft; right = nextRight; lastResult = now;
-            // The activity receives only landmarks/gestures, never camera frames.
-            if (now - lastPreview >= 200) {
-                lastPreview = now;
-                Intent preview = new Intent(ACTION_PREVIEW).setPackage(getPackageName());
-                preview.putExtra("left", previewLeft);
-                preview.putExtra("right", previewRight);
-                preview.putExtra("leftTrigger", nextLeft.trigger);
-                preview.putExtra("rightTrigger", nextRight.trigger);
-                sendBroadcast(preview);
+            synchronized (previewLock) {
+                if (closing) return;
+                left = nextLeft; right = nextRight; lastResult = now;
+                // The activity receives only landmarks/gestures, never camera frames.
+                if (now - lastPreview >= 200) {
+                    lastPreview = now;
+                    Intent preview = new Intent(ACTION_PREVIEW).setPackage(getPackageName());
+                    preview.putExtra("left", previewLeft);
+                    preview.putExtra("right", previewRight);
+                    preview.putExtra("leftTrigger", nextLeft.trigger);
+                    preview.putExtra("rightTrigger", nextRight.trigger);
+                    sendBroadcast(preview);
+                }
             }
         } catch (Throwable error) {
             Log.e(TAG, "Falha ao processar quadro da câmera", error);
@@ -306,8 +312,11 @@ public final class HandService extends Service {
     }
 
     @Override public void onDestroy() {
-        closing = true;
-        sendBroadcast(new Intent(ACTION_STOPPED).setPackage(getPackageName()));
+        synchronized (previewLock) {
+            closing = true;
+            sendBroadcast(new Intent(ACTION_STOPPED).setPackage(getPackageName()));
+        }
+        Log.i(TAG, "Câmera de mãos parada");
         if (sender != null) sender.shutdownNow();
         if (socket != null) socket.close();
         if (handler != null) handler.post(() -> {

@@ -184,7 +184,9 @@ def main():
     time.sleep(5)
     stopped_labels = labels(dump('hands-stopped'))
     note('Após parar câmera: ' + stopped_labels)
-    if 'Câmera parada' not in stopped_labels: raise RuntimeError('Câmera não confirmou parada.')
+    stop_log = adb('logcat', '-d', '-v', 'brief', timeout=50)
+    if 'Câmera parada' not in stopped_labels or 'Câmera de mãos parada' not in stop_log:
+        raise RuntimeError('Câmera ou interface não confirmaram a parada.')
     if not find_button('Abrir jogo instalado', start='play-button'): raise RuntimeError('Botão de abrir não encontrado.')
     time.sleep(4); nodes = dump('open-dialog')
     if not tap(nodes, 'Abrir'): raise RuntimeError('Confirmação de abrir sem câmera não encontrada: ' + labels(nodes))
