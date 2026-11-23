@@ -59,6 +59,23 @@ public class HandsMathTest {
         assertEquals("0.70711", HandsMath.packet(hand, new HandsMath.State()).split(" ")[10]);
     }
 
+    @Test public void usesFrameAspectForGesturesButPreservesNormalizedPosition() {
+        float[] x = new float[21], y = new float[21], z = new float[21];
+        for (int i = 0; i < 21; i++) { x[i] = .5f; y[i] = .5f; }
+        x[5] = .53f; x[17] = .47f;
+        HandsMath.State square = HandsMath.classify(x, y, z, true, 1f, 1f);
+        HandsMath.State scaled = HandsMath.classify(x, y, z, true, .5f, 1f);
+        assertEquals(square.x, scaled.x, 1e-6f);
+        assertEquals(square.y, scaled.y, 1e-6f);
+        assertTrue(scaled.z > square.z);
+    }
+
+    @Test(expected = IllegalArgumentException.class)
+    public void rejectsNonFiniteLandmarks() {
+        float[] x = new float[21]; x[0] = Float.NaN;
+        HandsMath.classify(x, new float[21], new float[21], true);
+    }
+
     @Test(expected = IllegalArgumentException.class)
     public void rejectsIncompleteDepthLandmarks() {
         HandsMath.classify(new float[21], new float[21], new float[20], true);

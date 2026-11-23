@@ -8,6 +8,8 @@ import android.util.Log;
 import androidx.test.ext.junit.runners.AndroidJUnit4;
 import androidx.test.platform.app.InstrumentationRegistry;
 
+import com.bigxr.olfx.HandRouting;
+import com.bigxr.olfx.MediaPipeRouting;
 import com.google.mediapipe.framework.image.BitmapImageBuilder;
 import com.google.mediapipe.framework.image.MPImage;
 import com.google.mediapipe.tasks.components.containers.NormalizedLandmark;
@@ -72,6 +74,20 @@ public final class HandImageTest {
             assertEquals("PH5 should contain 29 fields", 30, packet.split(" ").length);
             assertTrue("A detected hand must be present in the controller packet", left.present || right.present);
             assertTrue("Reference photo shows thumbs up; gesture was not classified", sawThumb);
+            // Exercise the same OLFX-derived adapter used by both camera services.
+            HandRouting.Hand[] routed = MediaPipeRouting.route(new HandRouting(), result, 90,
+                    bitmap.getWidth(), bitmap.getHeight(), 1_000_000L);
+            HandsMath.State routedLeft = new HandsMath.State(), routedRight = new HandsMath.State();
+            for (int side = 0; side < routed.length; side++) {
+                HandRouting.Hand hand = routed[side];
+                if (hand == null) continue;
+                HandsMath.State state = HandsMath.classify(hand.x, hand.y, hand.z, side == HandRouting.LEFT,
+                        hand.metricScaleX, hand.metricScaleY);
+                state.trigger = hand.trigger;
+                if (side == HandRouting.LEFT) routedLeft = state; else routedRight = state;
+            }
+            assertTrue("OLFX-derived adapter lost all detected hands", routedLeft.present || routedRight.present);
+            assertEquals(30, HandsMath.packet(routedLeft, routedRight).split(" ").length);
             Log.i("XRHandImageTest", "HAND_IMAGE_OK count=" + result.landmarks().size() + " packet=" + packet);
         } finally {
             if (landmarker != null) landmarker.close();

@@ -27,22 +27,36 @@ final class HandsMath {
     }
 
     static State classify(float[] x, float[] y, float[] z, boolean physicalLeft) {
+        return classify(x, y, z, physicalLeft, 1f, 1f);
+    }
+
+    static State classify(float[] x, float[] y, float[] z, boolean physicalLeft, float scaleX, float scaleY) {
         if (x.length < 21 || y.length < 21 || z.length < 21) throw new IllegalArgumentException("21 landmarks required");
+        if (!Float.isFinite(scaleX) || !Float.isFinite(scaleY) || scaleX <= 0 || scaleY <= 0)
+            throw new IllegalArgumentException("Invalid frame scale");
+        // Preserve normalized x/y for PH5 position, but use pixel-correct axes
+        // for gestures and the approximate palm basis on non-square frames.
+        float[] metricX = new float[21], metricY = new float[21];
+        for (int i = 0; i < 21; i++) {
+            if (!Float.isFinite(x[i]) || !Float.isFinite(y[i]) || !Float.isFinite(z[i]))
+                throw new IllegalArgumentException("Invalid landmark");
+            metricX[i] = x[i] * scaleX; metricY[i] = y[i] * scaleY;
+        }
         State state = new State();
         state.present = true;
-        boolean index = extended(x, y, 5, 6, 8);
-        boolean middle = extended(x, y, 9, 10, 12);
-        boolean ring = extended(x, y, 13, 14, 16);
-        boolean pinky = extended(x, y, 17, 18, 20);
-        float palm = Math.max(0.035f, distance(x, y, 5, 17));
-        boolean thumb = extended(x, y, 2, 3, 4) && distance(x, y, 4, 5) > palm * 0.62f;
+        boolean index = extended(metricX, metricY, 5, 6, 8);
+        boolean middle = extended(metricX, metricY, 9, 10, 12);
+        boolean ring = extended(metricX, metricY, 13, 14, 16);
+        boolean pinky = extended(metricX, metricY, 17, 18, 20);
+        float palm = Math.max(0.035f, distance(metricX, metricY, 5, 17));
+        boolean thumb = extended(metricX, metricY, 2, 3, 4) && distance(metricX, metricY, 4, 5) > palm * 0.62f;
         state.index = index && !middle && !ring && !pinky;
         state.thumb = thumb && !index && !middle && !ring && !pinky;
-        state.trigger = distance(x, y, 4, 8) < palm * 0.4f; // thumb/index pinch
+        state.trigger = distance(metricX, metricY, 4, 8) < palm * 0.4f; // default for direct callers
         int folded = 0;
         int[] tips = {8, 12, 16, 20}, joints = {6, 10, 14, 18};
         for (int i = 0; i < tips.length; i++) {
-            if (distance(x, y, 0, tips[i]) < distance(x, y, 0, joints[i]) * 1.04f) folded++;
+            if (distance(metricX, metricY, 0, tips[i]) < distance(metricX, metricY, 0, joints[i]) * 1.04f) folded++;
         }
         state.squeeze = folded >= 3 && !state.index && !state.thumb;
         int[] palmPoints = {0, 5, 9, 13, 17};
@@ -50,7 +64,7 @@ final class HandsMath {
         for (int point : palmPoints) { state.x += x[point] / 5f; state.y += y[point] / 5f; }
         state.x = clamp(state.x); state.y = clamp(state.y);
         state.z = clamp((0.17f - palm) / 0.13f);
-        estimateOrientation(state, x, y, z, physicalLeft);
+        estimateOrientation(state, metricX, metricY, z, physicalLeft);
         return state;
     }
 

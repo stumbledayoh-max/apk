@@ -6,6 +6,7 @@ on:
     paths:
       - 'xr_mobile/android/**'
       - 'xr_mobile/embedded/**'
+      - 'xr_mobile/olfx/**'
       - 'xr_mobile/build_runtime.py'
       - 'xr_mobile/build_payload.py'
       - 'xr_mobile/tests/**'
@@ -58,7 +59,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          gradle -p xr_mobile/embedded --no-daemon assembleRelease
+          gradle -p xr_mobile/embedded --no-daemon testReleaseUnitTest assembleRelease
           python3 xr_mobile/build_payload.py \
             --helper xr_mobile/embedded/app/build/outputs/apk/release/app-release-unsigned.apk \
             --runtime "$RUNNER_TEMP/phonexr-runtime.apk" --apktool-jar "$RUNNER_TEMP/apktool.jar" \

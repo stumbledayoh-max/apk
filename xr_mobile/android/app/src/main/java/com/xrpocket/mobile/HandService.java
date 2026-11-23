@@ -11,10 +11,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.content.pm.ServiceInfo;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
 import android.graphics.ImageFormat;
-import android.graphics.Rect;
-import android.graphics.YuvImage;
 import android.hardware.camera2.CameraAccessException;
 import android.hardware.camera2.CameraCaptureSession;
 import android.hardware.camera2.CameraCharacteristics;
@@ -34,23 +31,24 @@ import android.util.Size;
 import android.view.Surface;
 import android.view.WindowManager;
 
+import com.bigxr.olfx.HandFrameClock;
+import com.bigxr.olfx.HandImageGeometry;
+import com.bigxr.olfx.HandRouting;
+import com.bigxr.olfx.MediaPipeRouting;
+import com.bigxr.olfx.Yuv420;
 import com.google.mediapipe.framework.image.BitmapImageBuilder;
 import com.google.mediapipe.framework.image.MPImage;
-import com.google.mediapipe.tasks.components.containers.NormalizedLandmark;
 import com.google.mediapipe.tasks.core.BaseOptions;
 import com.google.mediapipe.tasks.vision.core.ImageProcessingOptions;
 import com.google.mediapipe.tasks.vision.core.RunningMode;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarker;
 import com.google.mediapipe.tasks.vision.handlandmarker.HandLandmarkerResult;
 
-import java.io.ByteArrayOutputStream;
 import java.net.DatagramPacket;
 import java.net.DatagramSocket;
 import java.net.InetAddress;
-import java.nio.ByteBuffer;
 import java.nio.charset.StandardCharsets;
 import java.util.Collections;
-import java.util.List;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -83,6 +81,9 @@ public final class HandService extends Service {
     private long lastTimestamp;
     private long lastPreview;
     private int sensorOrientation;
+    private boolean cameraTimestampRealtime, loggedFirstFrame;
+    private int frameFailures;
+    private final HandRouting routing = new HandRouting();
 
     @Override public void onCreate() {
         super.onCreate();
@@ -160,16 +161,21 @@ public final class HandService extends Service {
         CameraCharacteristics info = manager.getCameraCharacteristics(selected);
         Integer orientation = info.get(CameraCharacteristics.SENSOR_ORIENTATION);
         sensorOrientation = orientation == null ? 0 : orientation;
+        Integer source = info.get(CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE);
+        cameraTimestampRealtime = source != null && source == CameraCharacteristics.SENSOR_INFO_TIMESTAMP_SOURCE_REALTIME;
         StreamConfigurationMap map = info.get(CameraCharacteristics.SCALER_STREAM_CONFIGURATION_MAP);
         Size[] sizes = map == null ? null : map.getOutputSizes(ImageFormat.YUV_420_888);
         if (sizes == null || sizes.length == 0) throw new CameraAccessException(CameraAccessException.CAMERA_ERROR, "Sem formato de câmera compatível");
-        Size size = sizes[0];
+        Size size = null;
         long best = Long.MAX_VALUE;
         for (Size candidate : sizes) {
             long pixels = (long) candidate.getWidth() * candidate.getHeight();
+            if (candidate.getWidth() <= 0 || candidate.getHeight() <= 0 || candidate.getWidth() > 4096
+                    || candidate.getHeight() > 4096 || pixels > Yuv420.MAX_FRAME_PIXELS) continue;
             long score = Math.abs(pixels - 640L * 480L);
             if (score < best) { best = score; size = candidate; }
         }
+        if (size == null) throw new CameraAccessException(CameraAccessException.CAMERA_ERROR, "Quadros da câmera excedem o limite de memória");
         reader = ImageReader.newInstance(size.getWidth(), size.getHeight(), ImageFormat.YUV_420_888, 2);
         reader.setOnImageAvailableListener(this::onFrame, handler);
         manager.openCamera(selected, new CameraDevice.StateCallback() {
@@ -214,39 +220,37 @@ public final class HandService extends Service {
             long now = SystemClock.elapsedRealtime();
             if (now - lastFrame < 65) return;
             lastFrame = now;
+            int width = image.getWidth(), height = image.getHeight();
+            long monotonicNow = System.nanoTime();
+            long frameNs = HandFrameClock.normalizeTimestampNs(image.getTimestamp(), monotonicNow,
+                    SystemClock.elapsedRealtimeNanos(), cameraTimestampRealtime);
             bitmap = toBitmap(image);
             image.close(); image = null;
-            if (bitmap == null) return;
             int rotation = displayRotation();
             mpImage = new BitmapImageBuilder(bitmap).build();
             ImageProcessingOptions imageOptions = ImageProcessingOptions.builder().setRotationDegrees(rotation).build();
-            long timestamp = Math.max(now, lastTimestamp + 1);
+            long timestamp = HandFrameClock.nextMediaPipeTimestampMs(lastTimestamp, frameNs);
             lastTimestamp = timestamp;
             HandLandmarkerResult result = landmarker.detectForVideo(mpImage, imageOptions, timestamp);
+            HandRouting.Hand[] hands = MediaPipeRouting.route(routing, result, rotation, width, height, monotonicNow);
             HandsMath.State nextLeft = new HandsMath.State(), nextRight = new HandsMath.State();
             float[] previewLeft = null, previewRight = null;
-            List<List<NormalizedLandmark>> hands = result.landmarks();
-            for (int hand = 0; hand < hands.size(); hand++) {
-                List<NormalizedLandmark> points = hands.get(hand);
-                if (points.size() < 21) continue;
-                float[] x = new float[21], y = new float[21], z = new float[21];
-                for (int i = 0; i < 21; i++) {
-                    x[i] = points.get(i).x(); y[i] = points.get(i).y(); z[i] = points.get(i).z();
-                }
-                // MediaPipe reports handedness assuming a mirrored selfie image;
-                // the rear-camera frames we provide are not mirrored.
-                boolean physicalLeft = hand < result.handednesses().size()
-                        && !result.handednesses().get(hand).isEmpty()
-                        && "Right".equalsIgnoreCase(result.handednesses().get(hand).get(0).categoryName());
-                HandsMath.State state = HandsMath.classify(x, y, z, physicalLeft);
+            for (int side = 0; side < hands.length; side++) {
+                HandRouting.Hand hand = hands[side];
+                if (hand == null) continue;
+                HandsMath.State state = HandsMath.classify(hand.x, hand.y, hand.z, side == HandRouting.LEFT,
+                        hand.metricScaleX, hand.metricScaleY);
+                state.trigger = hand.trigger;
                 float[] preview = new float[42];
-                for (int i = 0; i < 21; i++) { preview[2*i] = x[i]; preview[2*i+1] = y[i]; }
-                if (physicalLeft) { nextLeft = state; previewLeft = preview; }
+                for (int i = 0; i < 21; i++) { preview[2*i] = hand.x[i]; preview[2*i+1] = hand.y[i]; }
+                if (side == HandRouting.LEFT) { nextLeft = state; previewLeft = preview; }
                 else { nextRight = state; previewRight = preview; }
             }
             synchronized (previewLock) {
                 if (closing) return;
                 left = nextLeft; right = nextRight; lastResult = now;
+                frameFailures = 0;
+                if (!loggedFirstFrame) { Log.i(TAG, "OLFX_HAND_PIPELINE_FRAME_OK"); loggedFirstFrame = true; }
                 // The activity receives only landmarks/gestures, never camera frames.
                 if (now - lastPreview >= 200) {
                     lastPreview = now;
@@ -260,6 +264,13 @@ public final class HandService extends Service {
             }
         } catch (Throwable error) {
             Log.e(TAG, "Falha ao processar quadro da câmera", error);
+            if (++frameFailures >= 10) {
+                synchronized (previewLock) {
+                    closing = true; left = new HandsMath.State(); right = new HandsMath.State();
+                }
+                Log.e(TAG, "Câmera parada após falhas repetidas na base OLFX");
+                stopSelf();
+            }
         } finally {
             if (image != null) image.close();
             if (mpImage != null) mpImage.close();
@@ -272,32 +283,18 @@ public final class HandService extends Service {
         WindowManager manager = (WindowManager) getSystemService(Context.WINDOW_SERVICE);
         int rotation = manager.getDefaultDisplay().getRotation();
         int degrees = rotation == Surface.ROTATION_90 ? 90 : rotation == Surface.ROTATION_180 ? 180 : rotation == Surface.ROTATION_270 ? 270 : 0;
-        return (sensorOrientation - degrees + 360) % 360;
+        return HandImageGeometry.clockwiseRotation(sensorOrientation, degrees);
     }
 
     private static Bitmap toBitmap(Image image) {
         int width = image.getWidth(), height = image.getHeight();
         Image.Plane[] planes = image.getPlanes();
-        byte[] nv21 = new byte[width * height * 3 / 2];
-        copyPlane(planes[0], width, height, nv21, 0, 1);
-        int offset = width * height;
-        copyPlane(planes[2], width / 2, height / 2, nv21, offset, 2); // V
-        copyPlane(planes[1], width / 2, height / 2, nv21, offset + 1, 2); // U
-        ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-        new YuvImage(nv21, ImageFormat.NV21, width, height, null).compressToJpeg(new Rect(0, 0, width, height), 75, bytes);
-        byte[] jpeg = bytes.toByteArray();
-        return BitmapFactory.decodeByteArray(jpeg, 0, jpeg.length);
-    }
-
-    private static void copyPlane(Image.Plane plane, int width, int height, byte[] output, int offset, int outputStride) {
-        ByteBuffer buffer = plane.getBuffer();
-        int base = buffer.position(), rowStride = plane.getRowStride(), pixelStride = plane.getPixelStride();
-        for (int row = 0; row < height; row++) {
-            for (int column = 0; column < width; column++) {
-                output[offset++] = buffer.get(base + row * rowStride + column * pixelStride);
-                offset += outputStride - 1;
-            }
-        }
+        if (planes.length != 3) throw new IllegalArgumentException("Formato da câmera não é YUV_420_888");
+        int[] argb = Yuv420.toArgb(width, height,
+                planes[0].getBuffer(), planes[0].getRowStride(), planes[0].getPixelStride(),
+                planes[1].getBuffer(), planes[1].getRowStride(), planes[1].getPixelStride(),
+                planes[2].getBuffer(), planes[2].getRowStride(), planes[2].getPixelStride());
+        return Bitmap.createBitmap(argb, width, height, Bitmap.Config.ARGB_8888);
     }
 
     private void sendState() {

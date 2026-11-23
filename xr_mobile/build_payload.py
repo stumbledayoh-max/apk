@@ -31,7 +31,7 @@ REQUIRED = {
     "Lorg/freedesktop/monado/ipc/Client;",
     "Lorg/freedesktop/monado/ipc/MonadoImpl;",
     "Lorg/freedesktop/monado/phonexr/RuntimeBroker;",
-}
+} | build_runtime.OLFX_COMPONENT_CLASSES
 
 
 def read_classes(path: Path) -> set[str]:
@@ -98,6 +98,9 @@ def build(helper: Path, runtime: Path, apktool_jar: Path, output: Path) -> None:
         models = [item for item in manifest["assets"] if item["path"] == "assets/hand_landmarker.task"]
         if len(models) != 1 or models[0]["sha256"] != integrated.MODEL_SHA256:
             raise tools.BuildError("Modelo de mãos ausente ou diferente do modelo fixado")
+        licenses = [item for item in manifest["assets"] if item["path"] == build_runtime.OLFX_LICENSE_PATH]
+        if len(licenses) != 1 or licenses[0]["sha256"] != build_runtime.OLFX_LICENSE_SHA256:
+            raise tools.BuildError("Licença dos componentes OLFX ausente ou alterada")
         with zipfile.ZipFile(runtime) as archive:
             for name in ("libopenxr_monado.so", "libmonado-service.so"):
                 path = "lib/arm64-v8a/" + name

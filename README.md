@@ -1,6 +1,6 @@
 # BigXR — criador Android experimental
 
-O **BigXR** é um aplicativo Android nativo para tentar criar uma cópia de um jogo com Monado e uma ponte de mãos integrados. Você precisa fornecer o **APK original** e, se houver, o OBB do jogo; nome e foto não contêm nem baixam o jogo. Use apenas arquivos que você tenha direito de modificar e usar.
+O **BigXR** é um aplicativo Android nativo para tentar criar uma cópia de um jogo com runtime PhoneXR/Monado e uma ponte de mãos baseada em componentes do OLFX. O OLFX é um fork do Monado: aqui são adaptadas partes de câmera e gestos, não o runtime OLFX completo. Você precisa fornecer o **APK original** e, se houver, o OBB do jogo; nome e foto não contêm nem baixam o jogo. Use apenas arquivos que você tenha direito de modificar e usar.
 
 A cópia produzida é **um único APK**, com o jogo e os componentes BigXR dentro dela. Ela não precisa do aplicativo BigXR nem de PhoneXR instalados separadamente para iniciar. O modo antigo, que instala o jogo separado, continua disponível como alternativa.
 
@@ -8,7 +8,7 @@ A cópia produzida é **um único APK**, com o jogo e os componentes BigXR dentr
 
 ## Build de teste
 
-A [build testada](https://github.com/stumbledayoh-max/apk/actions/runs/45277972250) contém o artefato `BigXR-experimental` com `BigXR-debug.apk`. O GitHub pode exigir login e os artefatos da CI expiram. SHA-256 do APK: `6ed2058f06ba46f4a2d728a6fe2838a806a2b57830cc64b332a44b48fa09ae5e`.
+A [build anterior testada](https://github.com/stumbledayoh-max/apk/actions/runs/45277972250) contém o artefato `BigXR-experimental` com `BigXR-debug.apk`, mas **ainda não inclui a integração OLFX**. O GitHub pode exigir login e os artefatos da CI expiram. SHA-256 do APK anterior: `6ed2058f06ba46f4a2d728a6fe2838a806a2b57830cc64b332a44b48fa09ae5e`.
 
 ## Como usar
 
@@ -20,12 +20,12 @@ A [build testada](https://github.com/stumbledayoh-max/apk/actions/runs/452779722
 
 A cópia conserva o nome de pacote original, mas recebe uma **nova assinatura local**, armazenada no Android Keystore do BigXR. O Android não permitirá atualizar diretamente a versão oficial com outra assinatura. Desinstalar a versão original pode apagar seus dados; faça backup antes. Desinstalar ou limpar os dados do BigXR pode remover a chave local, impedindo futuras atualizações de cópias assinadas anteriormente. Licenças, compras e verificações de integridade do jogo podem falhar; o BigXR não as remove nem garante que continuem funcionando.
 
-No [teste em emulador Android 15](https://github.com/stumbledayoh-max/apk/actions/runs/45281192075), uma fixture própria foi personalizada, salva e instalada. Depois de desinstalar o criador, a cópia iniciou a câmera e o modelo, extraiu o OBB e concluiu ciclos OpenXR com entradas sintéticas. **Isso não é teste de gameplay, gestos ao vivo nem de um celular físico.**
+No [teste anterior em emulador Android 15](https://github.com/stumbledayoh-max/apk/actions/runs/45281192075), antes da integração OLFX, uma fixture própria foi personalizada, salva e instalada. Depois de desinstalar o criador, a cópia iniciou a câmera e o modelo, extraiu o OBB e concluiu ciclos OpenXR com entradas sintéticas. **Isso não é teste de gameplay, gestos ao vivo nem de um celular físico.**
 
 ## Limitações e segurança
 
 - APKs divididos (`.apks`, `.apkm`, `.xapk` ou splits obrigatórios), jogos sem loader OpenXR ARM64 reconhecido e conflitos de classes ou bibliotecas são recusados. O criador não converte gráficos, arquitetura ou APIs proprietárias do jogo. A seleção de uma imagem e um nome não corrige incompatibilidades.
-- A câmera traseira é usada para estimar mãos; a ponte envia estados aproximados de controles ao Monado por UDP local (`127.0.0.1:42424`). Não é rastreamento nativo completo de dedos nem 6DoF calibrado, e outros apps locais podem enviar pacotes nessa porta. Quando visível, a notificação permite parar a câmera; o serviço tenta parar ao sair do jogo. Verifique o indicador de câmera e as configurações do Android.
+- A câmera traseira é usada para estimar mãos; a ponte usa componentes de geometria, associação e conversão de câmera do [OLFX](xr_mobile/olfx/README.md) e envia estados aproximados de controles ao Monado por UDP local (`127.0.0.1:42424`). Não é rastreamento nativo completo de dedos nem 6DoF calibrado, e outros apps locais podem enviar pacotes nessa porta. Quando visível, a notificação permite parar a câmera; o serviço tenta parar ao sair do jogo. Verifique o indicador de câmera e as configurações do Android.
 - O runtime tenta usar os sensores Android, incluindo o giroscópio quando disponível. A detecção da câmera, entradas sintéticas ou movimento de sensor em teste não garantem gestos reais, orientação correta ou gameplay em celular físico.
 - As bibliotecas Monado fixadas têm segmentos ELF alinhados a 4 KB; o alinhamento do ZIP não comprova funcionamento em aparelhos que exigem páginas de memória de 16 KB.
 - O BigXR distribuído pela CI é uma **build de depuração**; a chave da CI muda entre execuções. O runtime binário PhoneXR/Monado está fixado, mas seus direitos de redistribuição não foram confirmados. Confirme-os antes de redistribuir esta build ou APKs criados com ela.

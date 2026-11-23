@@ -21,6 +21,10 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+    // Compile the same OLFX-derived pipeline and license into each standalone game.
+    sourceSets["main"].java.srcDir("../../olfx/src/main/java")
+    sourceSets["test"].java.srcDir("../../olfx/src/test/java")
+    sourceSets["main"].assets.srcDir("../../olfx/src/main/assets")
     sourceSets["main"].assets.srcDir(
         System.getenv("XR_HAND_MODEL_DIR") ?: "src/main/assets"
     )

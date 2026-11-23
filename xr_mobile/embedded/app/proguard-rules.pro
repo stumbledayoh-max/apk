@@ -3,6 +3,7 @@
 -repackageclasses 'com.bigxr.embedded.internal'
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable
 -keep class com.bigxr.embedded.** { *; }
+-keep class com.bigxr.olfx.** { *; }
 -keep class org.freedesktop.monado.ipc.MonadoService { *; }
 -keep class org.freedesktop.monado.auxiliary.ActivityLifecycleListener { *; }
 -keep class org.freedesktop.monado.auxiliary.SystemUiController { *; }

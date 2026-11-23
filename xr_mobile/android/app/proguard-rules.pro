@@ -1,6 +1,7 @@
 # Native runtime and MediaPipe use class names/reflection across processes.
 -keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable
 -keep class com.xrpocket.mobile.** { *; }
+-keep class com.bigxr.olfx.** { *; }
 -keep class org.freedesktop.monado.ipc.MonadoService { *; }
 -keep class org.freedesktop.monado.auxiliary.ActivityLifecycleListener { *; }
 -keep class org.freedesktop.monado.auxiliary.SystemUiController { *; }

@@ -56,10 +56,15 @@ jobs:
               "https://raw.githubusercontent.com/KhronosGroup/OpenXR-SDK/7f9285bce1ce8b69bb75554bf788666579d0c35e/include/openxr/$header"
           done
           python3 - <<'PY'
-          import os
+          import os, subprocess
           from pathlib import Path
-          from questcraft_mobile.build_apk import download_checked, LOADER_URL, LOADER_SHA256
-          download_checked(LOADER_URL, Path(os.environ['RUNNER_TEMP'])/'xr-loader/arm64-v8a/libopenxr_loader.so', LOADER_SHA256, github_raw=True)
+          from questcraft_mobile.build_apk import LOADER_URL, LOADER_SHA256, verify_hash
+          loader = Path(os.environ['RUNNER_TEMP'])/'xr-loader/arm64-v8a/libopenxr_loader.so'
+          subprocess.run(['curl', '--fail', '--location', '--retry', '5', '--retry-all-errors',
+                          '-H', 'Accept: application/vnd.github.raw+json',
+                          '-H', 'Authorization: Bearer ' + os.environ['GH_TOKEN'],
+                          '-o', str(loader), LOADER_URL], check=True)
+          verify_hash(loader, LOADER_SHA256, False, 'Loader OpenXR da fixture')
           PY
           if [ ! -d "$ANDROID_HOME/ndk/27.0.12077973" ]; then
             "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.0.12077973'
@@ -74,7 +79,8 @@ jobs:
             curl --fail --location --retry 3 -o "$RUNNER_TEMP/ARSCLib.jar" \
               'https://github.com/REAndroid/ARSCLib/releases/download/V1.4.0/ARSCLib-1.4.0.jar'
             echo '0cc95b160ba4c731a5cadb455f32b79f4e64b4160bc5ec3e5183ea3676b385ce  '"$RUNNER_TEMP/ARSCLib.jar" | sha256sum -c -
-            curl --fail --location --retry 3 -H 'Accept: application/vnd.github.raw+json' -o "$RUNNER_TEMP/phonexr-runtime.apk" \
+            curl --fail --location --retry 5 --retry-all-errors -H 'Accept: application/vnd.github.raw+json' \
+              -H "Authorization: Bearer $GH_TOKEN" -o "$RUNNER_TEMP/phonexr-runtime.apk" \
               'https://api.github.com/repos/samrat1games/phonexr/contents/app/src/main/assets/runtime/phonexr-runtime.apk?ref=f393ea8c3f4579995efb7402d61a2108121b0900'
             echo '56dd0f53317e1e70d240d4de39217f7553011a04b1d4cf22a637de6d1ebf7fa8  '"$RUNNER_TEMP/phonexr-runtime.apk" | sha256sum -c -
             curl --fail --location --retry 3 -o "$RUNNER_TEMP/apktool.jar" \

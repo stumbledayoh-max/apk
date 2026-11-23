@@ -36,6 +36,11 @@ android {
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
         }
     }
+    // Shared OLFX-derived camera processing is used in both BigXR and its
+    // independent per-game payload, with the same attribution asset.
+    sourceSets["main"].java.srcDir("../../olfx/src/main/java")
+    sourceSets["test"].java.srcDir("../../olfx/src/test/java")
+    sourceSets["main"].assets.srcDir("../../olfx/src/main/assets")
     sourceSets["main"].assets.srcDir(
         System.getenv("XR_HAND_MODEL_DIR") ?: "src/main/assets"
     )

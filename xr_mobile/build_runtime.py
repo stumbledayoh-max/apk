@@ -31,6 +31,19 @@ DT_FLAGS_1 = 0x6FFFFFFB
 DF_1_NOW = 0x1
 DF_1_NODELETE = 0x8
 
+# Shared OLFX-derived camera components and their BSL attribution must be
+# present in both the launcher and every standalone game's support payload.
+OLFX_LICENSE_PATH = "assets/bigxr_licenses/OLFX-BSL-1.0.txt"
+OLFX_LICENSE_SHA256 = "905ba1a301ad997b2d76f609818861b5efdaa18908763dd29909647034abd313"
+OLFX_COMPONENT_CLASSES = {
+    "Lcom/bigxr/olfx/HandFrameClock;",
+    "Lcom/bigxr/olfx/HandImageGeometry;",
+    "Lcom/bigxr/olfx/HandAssociation;",
+    "Lcom/bigxr/olfx/HandRouting;",
+    "Lcom/bigxr/olfx/MediaPipeRouting;",
+    "Lcom/bigxr/olfx/Yuv420;",
+}
+
 REQUIRED_APP_CLASSES = {
     "Lcom/xrpocket/mobile/MainActivity;",
     "Lcom/xrpocket/mobile/HandService;",
@@ -38,7 +51,7 @@ REQUIRED_APP_CLASSES = {
     "Lorg/freedesktop/monado/auxiliary/ActivityLifecycleListener;",
     "Lorg/freedesktop/monado/auxiliary/SystemUiController;",
     "Lcom/google/mediapipe/tasks/vision/handlandmarker/HandLandmarker;",
-}
+} | OLFX_COMPONENT_CLASSES
 
 
 def keep_client_mapped(data: bytes) -> bytes:
@@ -115,6 +128,12 @@ def validate_host(apk: Path) -> set[str]:
             raise tools.BuildError("Modelo de mãos não corresponde ao arquivo fixado")
         if archive.getinfo("assets/hand_landmarker.task").compress_type != zipfile.ZIP_STORED:
             raise tools.BuildError("Modelo de mãos deve ficar sem compressão")
+        try:
+            attribution = archive.read(OLFX_LICENSE_PATH)
+        except KeyError as exc:
+            raise tools.BuildError("Licença dos componentes OLFX ausente") from exc
+        if hashlib.sha256(attribution).hexdigest() != OLFX_LICENSE_SHA256:
+            raise tools.BuildError("Licença dos componentes OLFX inesperada")
         if not any(n.startswith("lib/arm64-v8a/") and "mediapipe" in n.lower() and n.endswith(".so") for n in names):
             raise tools.BuildError("Biblioteca nativa MediaPipe ausente")
         classes: set[str] = set()

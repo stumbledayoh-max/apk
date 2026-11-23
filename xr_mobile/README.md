@@ -12,7 +12,9 @@ O ícone escolhido é recortado ao centro e convertido em PNG de 512×512. Um OB
 
 ## Mãos, sensores e privacidade
 
-A tela integrada solicita câmera apenas se escolhida. O serviço em primeiro plano processa imagens no aparelho com MediaPipe e envia estados aproximados de controle ao Monado via UDP local, porta 42424. Outros aplicativos locais podem enviar pacotes nessa porta. Não há implementação completa de `XR_EXT_hand_tracking`, rastreamento de corpo, posição absoluta ou calibragem. Quando visível, a notificação permite parar a câmera; em Android 13+ ela pode não aparecer sem permissão de notificações. O serviço tenta parar quando as atividades do jogo deixam o primeiro plano; jogos que usam processos ou ciclos de vida diferentes precisam de validação adicional. Verifique o indicador de câmera e as configurações do Android.
+A tela integrada solicita câmera apenas se escolhida. O serviço em primeiro plano processa imagens no aparelho com MediaPipe e envia estados aproximados de controle ao Monado via UDP local, porta 42424. O processamento também usa componentes adaptados do OLFX: conversão YUV, relógio e rotação da câmera, associação das mãos e histerese da pinça. Estão no criador e em cada cópia independente; a licença BSL-1.0 é incluída nos APKs. Origem e escopo estão em [`olfx/README.md`](olfx/README.md).
+
+A integração não substitui o runtime PhoneXR/Monado pelo runtime completo do OLFX e não inclui suas 26 juntas OpenXR nem o compositor SBS. Outros aplicativos locais podem enviar pacotes nessa porta. Não há implementação completa de `XR_EXT_hand_tracking`, rastreamento de corpo, posição absoluta ou calibragem. Quando visível, a notificação permite parar a câmera; em Android 13+ ela pode não aparecer sem permissão de notificações. O serviço tenta parar quando as atividades do jogo deixam o primeiro plano; jogos que usam processos ou ciclos de vida diferentes precisam de validação adicional. Verifique o indicador de câmera e as configurações do Android.
 
 O Monado contém o driver de sensores Android. O aplicativo também mostra o giroscópio no modo antigo, mas isso não prova funcionamento dentro de jogos. O modo antigo de launcher instala o jogo separadamente e usa broker público padrão, que pode conflitar com outros runtimes. O APK criado usa seu próprio broker privado e não precisa do launcher ou de outro runtime instalado.
 
@@ -27,7 +29,7 @@ export XR_HAND_MODEL_DIR=/caminho/do/modelo
 export XR_ARSCLIB_JAR=/caminho/ARSCLib-1.4.0.jar
 export XR_INJECTION_ASSETS_DIR=/caminho/para/assets-gerados
 
-gradle -p xr_mobile/embedded assembleRelease
+gradle -p xr_mobile/embedded testReleaseUnitTest assembleRelease
 python3 xr_mobile/build_payload.py \
   --helper xr_mobile/embedded/app/build/outputs/apk/release/app-release-unsigned.apk \
   --runtime /caminho/phonexr-runtime.apk --apktool-jar /caminho/apktool.jar \
@@ -45,6 +47,6 @@ O empacotador aplica uma guarda a uma extensão EGL opcional e marca o cliente M
 
 ## Testes
 
-A fixture em `xr_mobile/probe/` é um aplicativo próprio de diagnóstico, **não é um jogo**. No [teste final 45281192075](https://github.com/stumbledayoh-max/apk/actions/runs/45281192075), o criador selecionou APK, imagem e OBB da fixture, gerou e assinou a cópia, salvou-a e a instalou. Depois de desinstalar o criador, a cópia iniciou a câmera e o modelo, extraiu o OBB e completou três ciclos OpenXR e entradas sintéticas em uma sessão sem renderização. A câmera acrescentada permaneceu opcional. Os resultados resumidos estão em [`diagnosticos/45281192075/`](diagnosticos/45281192075/); uma execução anterior está em [`diagnosticos/45276416280/`](diagnosticos/45276416280/). O fluxo pode ser repetido por [`.github/workflows/bigxr-creator-test.yml`](../.github/workflows/bigxr-creator-test.yml). Isso não valida um jogo real nem um celular físico.
+A fixture em `xr_mobile/probe/` é um aplicativo próprio de diagnóstico, **não é um jogo**. No [teste anterior 45281192075](https://github.com/stumbledayoh-max/apk/actions/runs/45281192075), antes da integração OLFX, o criador selecionou APK, imagem e OBB da fixture, gerou e assinou a cópia, salvou-a e a instalou. Depois de desinstalar o criador, a cópia iniciou a câmera e o modelo, extraiu o OBB e completou três ciclos OpenXR e entradas sintéticas em uma sessão sem renderização. A câmera acrescentada permaneceu opcional. Os resultados resumidos estão em [`diagnosticos/45281192075/`](diagnosticos/45281192075/); uma execução anterior está em [`diagnosticos/45276416280/`](diagnosticos/45276416280/). O fluxo pode ser repetido por [`.github/workflows/bigxr-creator-test.yml`](../.github/workflows/bigxr-creator-test.yml). Isso não valida um jogo real nem um celular físico.
 
 Nos testes anteriores do modo separado, a [captura 45102870985](https://github.com/stumbledayoh-max/apk/actions/runs/45102870985) passou seleção/instalação da fixture, cópia de OBB sintético, início e parada da câmera e três ciclos de criação/destruição OpenXR. No [teste 45103608864](https://github.com/stumbledayoh-max/apk/actions/runs/45103608864), entradas PH5 sintéticas e mudança do giroscópio virtual chegaram a uma sessão headless. MediaPipe também detectou mãos em uma foto de referência. São evidências em emulador, não gameplay, rastreamento de mãos ao vivo ou teste em celular físico. Resumos anteriores estão em [`diagnosticos/`](diagnosticos/).
