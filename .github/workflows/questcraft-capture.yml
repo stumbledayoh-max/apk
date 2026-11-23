@@ -41,6 +41,7 @@ jobs:
           grep -Fxq 'assets/hand_landmarker.task' "$RUNNER_TEMP/apk-entries.txt"
       - name: Transferência opcional ao ambiente de teste
         if: github.event_name == 'workflow_dispatch'
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
@@ -50,8 +51,16 @@ jobs:
             echo "::add-mask::$url"
             apk="$RUNNER_TEMP/questcraft-apk/QuestCraft-Mobile-debug.apk"
             expected=$(sha256sum "$apk" | cut -d' ' -f1)
-            curl --fail --silent --show-error --retry 2 --max-time 180 \
-              -H "X-Expected-SHA256: $expected" --data-binary "@$apk" "$url"
+            probe=$(curl --silent --output /dev/null --write-out '%{http_code}' "${url%/ingest/*}/")
+            echo "Diagnóstico do endereço de prévia: HTTP $probe"
+            status=$(curl --silent --show-error --retry 2 --max-time 180 \
+              --output "$RUNNER_TEMP/transfer-response.txt" --write-out '%{http_code}' \
+              -H "X-Expected-SHA256: $expected" --data-binary "@$apk" "$url")
+            if [ "$status" != 201 ]; then
+              detail=$(head -c 500 "$RUNNER_TEMP/transfer-response.txt" | tr '\n' ' ')
+              printf '::warning title=Transferência opcional::HTTP %s — %s\n' "$status" "$detail"
+              exit 1
+            fi
             echo "SHA-256 do APK transferido: $expected"
           fi
       - name: Ativar KVM
@@ -74,6 +83,7 @@ jobs:
           script: bash questcraft_mobile/emulator_screenshot.sh
       - name: Transferir diagnóstico ao ambiente de teste
         if: ${{ always() && github.event_name == 'workflow_dispatch' }}
+        continue-on-error: true
         shell: bash
         run: |
           set -euo pipefail
