@@ -145,10 +145,11 @@ static int input_probe(JavaVM *vm, jobject activity) {
                 status = xrLocateSpace(view_space, local_space, time, &head);
                 if (XR_SUCCEEDED(status) && (head.locationFlags & XR_SPACE_LOCATION_ORIENTATION_VALID_BIT)) {
                     XrQuaternionf q = head.pose.orientation;
-                    if (!have_head) { initial_head = q; have_head = 1; }
+                    if (!have_head) { initial_head = q; have_head = 1; LOG("INPUT_GYRO_BASELINE"); }
                     else {
                         float dot = fabsf(q.x*initial_head.x + q.y*initial_head.y + q.z*initial_head.z + q.w*initial_head.w);
-                        if (dot < 0.99995f && !saw_head_motion) {
+                        // About 11 degrees of rotation, not just numerical drift.
+                        if (dot < 0.995f && !saw_head_motion) {
                             saw_head_motion = 1; LOG("INPUT_HEAD_MOTION_OK dot=%.6f", dot);
                         }
                     }

@@ -119,10 +119,21 @@ def quick_probe(host, probe):
     adb('install', '-r', str(probe))
     adb('shell', 'input', 'keyevent', 'KEYCODE_WAKEUP', check=False)
     adb('shell', 'wm', 'dismiss-keyguard', check=False)
-    adb('emu', 'sensor', 'set', 'gyroscope', '0.4:0.2:0.1', check=False)
+    adb('emu', 'sensor', 'set', 'gyroscope', '0:0:0', check=False)
     adb('logcat', '-c', check=False)
     adb('shell', 'am', 'start', '-W', '-n', 'com.xrpocket.probe/com.xrpocket.probe.ProbeActivity', timeout=60)
-    time.sleep(90)
+    # Wait for a stable initial view orientation, then change only the virtual
+    # gyroscope. A sizeable later rotation is stronger evidence than drift.
+    for _ in range(80):
+        before = adb('logcat', '-d', '-s', 'XRProbe:I', '*:S', timeout=30, check=False)
+        if 'INPUT_GYRO_BASELINE' in before: break
+        time.sleep(1)
+    else:
+        raise RuntimeError('Fixture não obteve orientação inicial para o teste do giroscópio.')
+    if 'INPUT_HEAD_MOTION_OK' in before: raise RuntimeError('Movimento apareceu antes de mudar o giroscópio virtual.')
+    note('Orientação inicial capturada com giroscópio zerado; aplicando rotação virtual.')
+    adb('emu', 'sensor', 'set', 'gyroscope', '0.4:0.2:0.1')
+    time.sleep(25)
     screenshot('probe.png')
     verify_openxr(adb('logcat', '-d', '-v', 'brief', timeout=50))
     note('Instâncias, entrada sintética e movimento virtual confirmados; não é gameplay.')
