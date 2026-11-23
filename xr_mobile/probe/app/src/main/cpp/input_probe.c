@@ -20,18 +20,25 @@
     if (XR_FAILED(status)) { LOG("INPUT_ERROR %s result=%d", #call, status); goto cleanup; } \
 } while (0)
 
-static void send_hand(int socket_fd, const struct sockaddr_in *destination, int pressed) {
+static void send_hand(int socket_fd, const struct sockaddr_in *destination, int pressed,
+                      const char *press_packet, const char *release_packet) {
     char data[256];
-    int n = snprintf(data, sizeof(data),
-        "PH5 1 %d 0 0 0.2 0.5 0.2 0 0 0 1 0 0 0 "
-        "0 0 0 0 0.5 0.5 0.5 0 0 0 1 0 0 0 1", pressed);
-    if (n > 0 && (size_t)n < sizeof(data)) {
-        (void)sendto(socket_fd, data, (size_t)n, 0,
+    const char *packet = pressed ? press_packet : release_packet;
+    if (packet == NULL) {
+        int n = snprintf(data, sizeof(data),
+            "PH5 1 %d 0 0 0.2 0.5 0.2 0 0 0 1 0 0 0 "
+            "0 0 0 0 0.5 0.5 0.5 0 0 0 1 0 0 0 1", pressed);
+        if (n <= 0 || (size_t)n >= sizeof(data)) return;
+        packet = data;
+    }
+    size_t length = strlen(packet);
+    if (length > 0 && length < sizeof(data)) {
+        (void)sendto(socket_fd, packet, length, 0,
                      (const struct sockaddr *)destination, sizeof(*destination));
     }
 }
 
-static int input_probe(JavaVM *vm, jobject activity) {
+static int input_probe(JavaVM *vm, jobject activity, const char *press_packet, const char *release_packet) {
     XrResult status = XR_SUCCESS;
     XrInstance instance = XR_NULL_HANDLE;
     XrSession session = XR_NULL_HANDLE;
@@ -120,7 +127,7 @@ static int input_probe(JavaVM *vm, jobject activity) {
             }
             memset(&event, 0, sizeof(event)); event.type = XR_TYPE_EVENT_DATA_BUFFER;
         }
-        send_hand(socket_fd, &destination, !saw_press);
+        send_hand(socket_fd, &destination, !saw_press, press_packet, release_packet);
         if (focused) {
             status = xrSyncActions(session, &sync);
             if (XR_FAILED(status)) { LOG("INPUT_ERROR sync result=%d", status); goto cleanup; }
@@ -188,10 +195,23 @@ cleanup:
     return success;
 }
 
-JNIEXPORT jstring JNICALL Java_com_xrpocket_probe_ProbeActivity_probeInput(JNIEnv *env, jclass cls, jobject activity) {
+JNIEXPORT jstring JNICALL Java_com_xrpocket_probe_ProbeActivity_probeInput(
+        JNIEnv *env, jclass cls, jobject activity, jstring press_j, jstring release_j) {
     (void)cls;
     JavaVM *vm = NULL;
     if ((*env)->GetJavaVM(env, &vm) != JNI_OK) return (*env)->NewStringUTF(env, "GetJavaVM failed");
-    int ok = input_probe(vm, activity);
+    const char *press = NULL, *release = NULL;
+    if (press_j != NULL && release_j != NULL) {
+        press = (*env)->GetStringUTFChars(env, press_j, NULL);
+        if (press == NULL) return NULL; // JVM already raised OutOfMemoryError
+        release = (*env)->GetStringUTFChars(env, release_j, NULL);
+        if (release == NULL) {
+            (*env)->ReleaseStringUTFChars(env, press_j, press);
+            return NULL;
+        }
+    }
+    int ok = input_probe(vm, activity, press, release);
+    if (press != NULL) (*env)->ReleaseStringUTFChars(env, press_j, press);
+    if (release != NULL) (*env)->ReleaseStringUTFChars(env, release_j, release);
     return (*env)->NewStringUTF(env, ok ? "synthetic inputs and virtual head motion OK" : "input test failed; see log");
 }

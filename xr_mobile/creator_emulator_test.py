@@ -235,13 +235,14 @@ def install_and_exercise():
     for cycle in range(1, 4):
         for operation in ('CREATE_INSTANCE', 'GET_SYSTEM', 'DESTROY_INSTANCE'):
             if f'{operation} cycle={cycle} result=0' not in log: raise RuntimeError('OpenXR autônomo falhou: ' + operation)
-    for marker in ('ALL_CYCLES_OK', 'INPUT_PRESS_OK', 'INPUT_RELEASE_OK', 'INPUT_POSE_OK', 'INPUT_HEAD_MOTION_OK', 'INPUTS_OK'):
-        if marker not in log: raise RuntimeError('Entrada sintética ou sensor virtual não confirmado: ' + marker)
+    for marker in ('ALL_CYCLES_OK', 'OLFX_PH5_PACKETS_READY', 'INPUT_PRESS_OK', 'INPUT_RELEASE_OK',
+                   'INPUT_POSE_OK', 'INPUT_HEAD_MOTION_OK', 'INPUTS_OK'):
+        if marker not in log: raise RuntimeError('Rota OLFX/PH5 sintética ou sensor virtual não confirmado: ' + marker)
     if not ui.adb('shell', 'pidof', PACKAGE, check=False).strip(): raise RuntimeError('Processo da fixture morreu')
     if ('FATAL EXCEPTION' in log and PACKAGE in log) or ('Fatal signal' in log and 'xrpocket.probe' in log):
         raise RuntimeError('Crash observado na fixture autônoma')
     ui.screenshot('05-standalone.png')
-    ui.note('Sem BigXR instalado: três ciclos OpenXR, entradas PH5 sintéticas e movimento do giroscópio virtual passaram. Não é gameplay.')
+    ui.note('Sem BigXR instalado: três ciclos OpenXR, landmarks sintéticos via OLFX/PH5 e movimento do giroscópio virtual passaram. Não é gameplay.')
 
 
 def main():
