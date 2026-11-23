@@ -2,6 +2,14 @@ name: Captura experimental do QuestCraft
 
 on:
   workflow_dispatch:
+    inputs:
+      renderer:
+        description: 'Renderizador do emulador (software; não equivale a GPU física)'
+        type: choice
+        default: swiftshader_indirect
+        options:
+          - swiftshader_indirect
+          - swangle
   push:
     paths:
       - '.github/workflows/questcraft-capture.yml'
@@ -27,6 +35,7 @@ jobs:
             --status success --json databaseId --jq '.[0].databaseId')
           test -n "$RUN_ID"
           mkdir -p "$RUNNER_TEMP/questcraft-apk"
+          echo "$RUN_ID" > "$RUNNER_TEMP/questcraft-apk/build-run-id.txt"
           gh run download "$RUN_ID" --name QuestCraft-Mobile-unico-experimental --dir "$RUNNER_TEMP/questcraft-apk"
           APK="$RUNNER_TEMP/questcraft-apk/QuestCraft-Mobile-debug.apk"
           test -f "$APK"
@@ -43,12 +52,13 @@ jobs:
         uses: reactivecircus/android-emulator-runner@v2
         env:
           GH_TOKEN: ${{ github.token }}
+          QUESTCRAFT_CAPTURE_RENDERER: ${{ inputs.renderer || 'swiftshader_indirect' }}
         with:
           api-level: 35
           target: google_apis
           arch: x86_64
           profile: pixel_6
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none
+          emulator-options: -no-window -gpu ${{ inputs.renderer || 'swiftshader_indirect' }} -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none
           disable-animations: true
           emulator-boot-timeout: 600
           script: bash questcraft_mobile/emulator_screenshot.sh

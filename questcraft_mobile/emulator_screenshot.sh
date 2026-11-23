@@ -5,7 +5,12 @@ mkdir -p capture
 REPORT=capture/diagnostico.txt
 {
   echo 'Captura do APK único em emulador Android; não equivale a teste em celular físico.'
+  echo "Build: $(cat "$RUNNER_TEMP/questcraft-apk/build-run-id.txt" 2>/dev/null || echo desconhecida)"
+  echo "APK SHA-256: $(sha256sum "$RUNNER_TEMP/questcraft-apk/QuestCraft-Mobile-debug.apk" | cut -d' ' -f1)"
+  echo "Renderizador solicitado: ${QUESTCRAFT_CAPTURE_RENDERER:-desconhecido}"
   echo "ABI: $(adb shell getprop ro.product.cpu.abilist | tr -d '\r')"
+  echo "OpenGL ES anunciado: $(adb shell getprop ro.opengles.version | tr -d '\r')"
+  adb shell dumpsys SurfaceFlinger 2>/dev/null | grep -i -m 2 'GLES:' || true
   echo '--- instalação do único APK ---'
 } > "$REPORT"
 if ! adb install -r "$RUNNER_TEMP/questcraft-apk/QuestCraft-Mobile-debug.apk" >> "$REPORT" 2>&1; then
