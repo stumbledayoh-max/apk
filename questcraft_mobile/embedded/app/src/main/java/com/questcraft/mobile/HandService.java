@@ -221,12 +221,16 @@ public final class HandService extends Service {
             for (int hand = 0; hand < hands.size(); hand++) {
                 List<NormalizedLandmark> points = hands.get(hand);
                 if (points.size() < 21) continue;
-                float[] x = new float[21], y = new float[21];
-                for (int i = 0; i < 21; i++) { x[i] = points.get(i).x(); y[i] = points.get(i).y(); }
-                HandsMath.State state = HandsMath.classify(x, y);
+                float[] x = new float[21], y = new float[21], z = new float[21];
+                for (int i = 0; i < 21; i++) {
+                    x[i] = points.get(i).x(); y[i] = points.get(i).y(); z[i] = points.get(i).z();
+                }
+                // MediaPipe reports handedness assuming a mirrored selfie image;
+                // the rear-camera frames we provide are not mirrored.
                 boolean physicalLeft = hand < result.handednesses().size()
                         && !result.handednesses().get(hand).isEmpty()
                         && "Right".equalsIgnoreCase(result.handednesses().get(hand).get(0).categoryName());
+                HandsMath.State state = HandsMath.classify(x, y, z, physicalLeft);
                 if (physicalLeft) nextLeft = state; else nextRight = state;
             }
             left = nextLeft; right = nextRight; lastResult = now;

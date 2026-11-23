@@ -3,8 +3,6 @@ import { useEffect, useState } from "react";
 const REPO = "stumbledayoh-max/apk";
 const BRANCH = "arena/e3a80795-apk";
 const ACTIONS_URL = `https://github.com/${REPO}/actions/workflows/questcraft-mobile.yml?query=branch%3A${encodeURIComponent(BRANCH)}`;
-const PHONE_XR_URL =
-  "https://github.com/samrat1games/phonexr/releases/download/v2.0.1/PhoneXR-2.0.1.apk";
 const GUIDE_URL = `https://github.com/${REPO}/blob/${BRANCH}/questcraft_mobile/README.md`;
 const SOURCE_URL = "https://github.com/QuestCraftPlusPlus/QuestCraft";
 
@@ -41,7 +39,7 @@ function useLatestBuild(): BuildLink {
           );
           const artifact = (result.artifacts ?? []).find(
             (item: { name?: string; expired?: boolean; id?: number }) =>
-              item.name === "QuestCraft-Mobile-debug-experimental" &&
+              item.name === "QuestCraft-Mobile-unico-experimental" &&
               !item.expired &&
               Number.isSafeInteger(item.id),
           );
@@ -112,13 +110,13 @@ const features = [
     type: "gyro" as const,
     eyebrow: "OLHAR",
     title: "Giroscópio",
-    body: "O PhoneXR tenta usar os sensores do celular para orientar a visão; ainda falta testar no port.",
+    body: "O runtime integrado tenta usar os sensores do celular para orientar a visão; ainda falta testar no aparelho.",
   },
   {
     type: "hands" as const,
     eyebrow: "INTERAGIR",
     title: "Rastreamento de mãos",
-    body: "O PhoneXR usa a câmera para detectar as mãos. Os gestos no QuestCraft ainda precisam ser testados.",
+    body: "A câmera traseira e o MediaPipe tentam converter gestos em controles dentro do próprio APK; ainda falta testar.",
   },
   {
     type: "phone" as const,
@@ -131,24 +129,23 @@ const features = [
 const steps = [
   {
     number: "01",
-    title: "Instale o PhoneXR",
-    text: "Baixe a versão completa. Ela fornece o runtime, a câmera e os sensores para o port.",
-    link: { label: "Baixar PhoneXR", url: PHONE_XR_URL },
+    title: "Baixe o APK único",
+    text: "Baixe a build experimental. Se vier em um ZIP do GitHub, extraia QuestCraft-Mobile-debug.apk.",
   },
   {
     number: "02",
-    title: "Prepare o runtime",
-    text: "Abra o PhoneXR, permita a câmera e instale ou selecione o PhoneXR Runtime quando solicitado.",
+    title: "Instale no Android",
+    text: "Instale o APK em um celular Android 10 ou superior, com processador ARM64. Nenhum aplicativo auxiliar é necessário.",
   },
   {
     number: "03",
-    title: "Instale o port",
-    text: "Baixe o ZIP pelo GitHub, extraia e instale o arquivo QuestCraft-Mobile-debug.apk.",
+    title: "Abra o QuestCraft",
+    text: "Toque no ícone do jogo e escolha se permite a câmera para tentar usar as mãos.",
   },
   {
     number: "04",
-    title: "Abra pelo PhoneXR",
-    text: "Inicie o QuestCraft pela biblioteca do PhoneXR para ativar o rastreamento de mãos.",
+    title: "Prepare a primeira partida",
+    text: "O jogo pode baixar componentes adicionais e precisa de uma conta com Minecraft: Java Edition.",
   },
 ];
 
@@ -210,8 +207,8 @@ export default function App() {
               <span>no seu celular.</span>
             </h1>
             <p className="hero-description">
-              Uma adaptação experimental do QuestCraft 6.0.0 para tentar jogar
-              no celular usando mãos e giroscópio pelo PhoneXR.
+              Um APK experimental do QuestCraft 6.0.0 com runtime, câmera e
+              sensores integrados. Sem instalar um aplicativo auxiliar.
             </p>
             <div className="hero-actions">
               <a
@@ -319,11 +316,10 @@ export default function App() {
             <div className="notice" role="note">
               <span className="notice-icon">!</span>
               <p>
-                <strong>Antes de começar:</strong> aberto diretamente no
-                emulador, o port mostrou um aviso de hardware e voltou à tela
-                inicial depois de continuar. Ainda não foi testado em um celular
-                real; os gestos podem não funcionar. Faça backup antes de
-                desinstalar uma versão antiga.
+                <strong>Antes de começar:</strong> esta versão de APK único é
+                experimental e ainda não foi testada em um celular real. Ela
+                pode não abrir ou os gestos podem não funcionar. Faça backup
+                antes de desinstalar uma versão antiga.
               </p>
             </div>
           </div>
@@ -357,11 +353,6 @@ export default function App() {
                   <div>
                     <h3>{step.title}</h3>
                     <p>{step.text}</p>
-                    {step.link && (
-                      <a href={step.link.url} target="_blank" rel="noreferrer">
-                        {step.link.label} ↗
-                      </a>
-                    )}
                   </div>
                 </li>
               ))}
@@ -379,11 +370,10 @@ export default function App() {
                 ele está<span>.</span>
               </h2>
               <p>
-                Esta é uma captura real do APK aberto diretamente no emulador
-                Android. O aviso diz que o dispositivo não atende aos
-                requisitos; ao continuar, o teste voltou à tela inicial. Ainda
-                não temos uma imagem do jogo rodando ou um teste em celular
-                físico.
+                Esta captura é de uma versão anterior do port aberta no emulador
+                Android. Ela mostrou um aviso de hardware e voltou à tela
+                inicial. Ainda não temos imagem do jogo rodando em celular
+                físico com o novo APK único.
               </p>
             </div>
             <figure className="capture-card">
@@ -403,7 +393,7 @@ export default function App() {
                 />
               </a>
               <figcaption>
-                <strong>Inicialização do port</strong>
+                <strong>Inicialização de uma versão anterior</strong>
                 <span>Aviso de hardware no emulador · Não é gameplay</span>
               </figcaption>
             </figure>

@@ -1,118 +1,40 @@
-# QuestCraft Mobile — adaptação experimental
+# QuestCraft Mobile — APK único experimental
 
-O arquivo do link informado se chama **QCXR-6.0.0.apk**. Ele corresponde ao
-nome do release oficial do QuestCraft 6.0.0, mas **não pudemos baixar o arquivo
-do GoFile neste ambiente e portanto não sabemos se os dois são idênticos**. Este
-projeto prepara um APK experimental do QuestCraft para experimentar no Android.
+Adaptação **não oficial e não validada em celular físico** do QuestCraft 6.0.0 para Android ARM64. O processo incorpora no mesmo APK um runtime Monado/PhoneXR, o serviço de câmera e o modelo MediaPipe. **Não é necessário instalar o aplicativo PhoneXR nem um runtime separado.** Compilar ou instalar não prova que o jogo ou os controles funcionam.
 
-O script usa por padrão o [release oficial 6.0.0](https://github.com/QuestCraftPlusPlus/QuestCraft/releases/tag/6.0.0)
-e verifica seu SHA-256 (`4d474dff57ba131a8719e073078c9212c739c18841716f37968dfee6732b783c`).
-Também aceita o seu arquivo local com `--apk`. Nenhum APK de terceiros ou chave é
-armazenado neste repositório.
+## Baixar e instalar
 
-> **Importante:** isto é um patch experimental, **não é uma conversão comprovada**.
-> A montagem foi testada com um APK sintético e também gerou um APK a partir
-> do release oficial, mas não houve teste em dispositivo real. O Unity, o
-> Vivecraft, extensões proprietárias de Quest ou o mapeamento das mãos podem
-> falhar. No emulador Android, o APK instalou e, aberto diretamente, mostrou
-> um aviso de hardware e voltou à tela inicial depois de continuar. Isso não
-> testa o lançamento pelo PhoneXR nem substitui um teste em telefone; o patch
-> não garante que o seu aparelho execute o jogo.
+A [página de builds desta branch](https://github.com/stumbledayoh-max/apk/actions/workflows/questcraft-mobile.yml?query=branch%3Aarena%2Fe3a80795-apk) lista as execuções. Se houver uma execução bem-sucedida com o artefato **QuestCraft-Mobile-unico-experimental**, abra-a, baixe o ZIP do artefato (o GitHub normalmente pede login), extraia `QuestCraft-Mobile-debug.apk` e instale-o. Não confunda com o artefato antigo `QuestCraft-Mobile-debug-experimental`, que dependia do aplicativo PhoneXR.
 
-## O que o patch faz
+1. Use Android 10 (API 29) ou superior em um telefone **ARM64** com câmera traseira e sensores. É necessária internet para os componentes baixados pelo QuestCraft na primeira execução.
+2. Abra o QuestCraft pelo ícone. Para tentar rastreamento de mãos, conceda a permissão da câmera. A posição e a iluminação podem influenciar os gestos; a ponte usa uma câmera 2D e posições aproximadas, não captura 6DoF confiável.
+3. O jogo original informa que o jogo completo exige conta Microsoft com Minecraft: Java Edition. O lançamento original também menciona um modo de demonstração. Não sabemos se login, demo e controles funcionarão neste port; um controle externo pode ser necessário.
 
-- Mantém o pacote `com.qcxr.qcxr`, torna opcionais alguns requisitos de headset
-  no manifesto e acrescenta a visibilidade/permissões do broker OpenXR.
-- Substitui `lib/arm64-v8a/libopenxr_loader.so` pelo loader do PhoneXR,
-  [fixado neste commit](https://github.com/samrat1games/phonexr/tree/f393ea8c3f4579995efb7402d61a2108121b0900),
-  com SHA-256 conferido. Remove outras ABIs para não instalar um loader não
-  adaptado. Só gera build para **Android ARM64**.
-- Reempacota, alinha bibliotecas para páginas de 16 KiB, assina com uma chave
-  local de **debug** e verifica assinatura e alinhamento.
-- Não inclui o runtime, a câmera nem os sensores dentro do APK. Eles vêm do
-  [PhoneXR 2.0.1](https://github.com/samrat1games/phonexr/releases/tag/v2.0.1),
-  instalado separadamente. O PhoneXR usa a câmera para estimar mãos/gestos e
-  envia entrada ao seu runtime Monado OpenXR; a orientação depende dos
-  sensores do telefone. Os gestos efetivamente aceitos pelo QuestCraft precisam
-  ser verificados no aparelho. Sem giroscópio, aceleração sozinha não mede
-  guinada completa; posição 6DoF também não é garantida.
-- Não muda verificações de compra, conta ou autenticação do Minecraft.
+A assinatura é de **teste**, diferente da assinatura oficial e recriada em cada execução da CI. O Android pode exigir a remoção de instalações anteriores para instalar ou atualizar. **Faça backup dos dados antes: desinstalar pode apagá-los.** Não compartilhe suas credenciais com o autor desta adaptação.
 
-Inspirado no [script PXRCraft do PhoneXR](https://github.com/samrat1games/phonexr/blob/f393ea8c3f4579995efb7402d61a2108121b0900/pxrcraft/build_pxrcraft.py)
-e na lógica de [visibilidade OpenXR](https://github.com/samrat1games/phonexr/blob/f393ea8c3f4579995efb7402d61a2108121b0900/app/src/main/java/com/samrat/cardboardhands/AndroidManifestPatcher.kt).
-QuestCraft, Unity wrapper e Pojlib têm seus próprios autores/licenças; Minecraft
-pertence à Mojang/Microsoft. Confira as licenças dos componentes antes de
-redistribuir qualquer build.
+## Estado e limitações
 
-## Baixar uma build no GitHub
+- A build unifica os componentes no APK; isso não é prova de gameplay, rastreamento, giroscópio ou compatibilidade. O suporte pode não iniciar, travar, exibir aviso de hardware ou não reconhecer gestos.
+- O teste anterior no emulador mostrou um aviso de hardware e voltou à tela inicial depois de Continuar. A captura salva no site é desse teste anterior e **não é gameplay**. Emuladores não comprovam o funcionamento de câmera ou sensores em celular real.
+- Não há acesso ao projeto Unity completo do jogo. A adaptação altera o APK oficial e integra bibliotecas binárias de terceiros; não é uma recompilação nativa do QuestCraft para celulares.
+- O APK tem assinatura de depuração e não deve substituir uma versão de produção. Câmera e sensores são recursos sensíveis; não há garantia de qualidade, estabilidade ou segurança.
+- Não sabemos se a câmera traseira conseguirá observar as mãos na forma como você segura ou usa o telefone. O reconhecimento e a conversão em controles são heurísticos e incompletos.
 
-1. Depois que a branch com `.github/workflows/questcraft-mobile.yml` estiver no
-   GitHub, um push que altere esses arquivos inicia **QuestCraft Mobile
-   (experimental)** em **Actions**. Também é possível usar **Run workflow**
-   quando o workflow estiver disponível na branch padrão.
-2. Abra a execução **bem-sucedida** da branch e baixe o artefato
-   `QuestCraft-Mobile-debug-experimental`. Nele há o APK, um `.sha256`, o
-   `build-report.json` e as instruções. Um workflow que falhar não gera APK.
-3. Essa automação baixa o release **oficial**, não o conteúdo do link GoFile.
-   Para usar exatamente seu arquivo, faça a build local abaixo.
+## Construir
 
-Cada execução do Actions cria uma chave de debug nova e não guarda a chave no
-artefato. Logo, uma build posterior não atualiza a anterior com a mesma
-assinatura. O Android pode exigir que a versão anterior seja desinstalada:
-**faça backup antes, pois desinstalar pode apagar mundos e configurações.**
+Use JDK 17, Python 3, Gradle 8.11.1, Android SDK 35, build-tools, `zipalign`, `apksigner` e apktool. A CI em [`.github/workflows/questcraft-mobile.yml`](../.github/workflows/questcraft-mobile.yml) documenta as versões e os downloads fixados. O APK oficial QuestCraft 6.0.0 deve ter SHA-256 `4d474dff57ba131a8719e073078c9212c739c18841716f37968dfee6732b783c`; não conseguimos verificar se o arquivo da URL GoFile fornecida era idêntico.
 
-## Gerar localmente a partir do seu APK
-
-Pré-requisitos: Python 3.9+, Java/JDK 17 (incluindo `keytool`),
-[Apktool](https://apktool.org/) 2.9+ e Android SDK Build Tools **35+**
-(`zipalign`, `apksigner`). Configure `ANDROID_HOME` ou passe `--build-tools`.
-Se o Apktool estiver em um `.jar`, passe `--apktool-jar caminho/apktool.jar`.
+Primeiro coloque o modelo `hand_landmarker.task` em um diretório à parte (a CI fixa o SHA-256 `fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1`) e execute:
 
 ```bash
-# Com o arquivo do usuário (se o hash coincidir com o release oficial):
-python3 questcraft_mobile/build_apk.py --apk /caminho/QCXR-6.0.0.apk
-
-# Ou, sem --apk, baixar e verificar o release oficial automaticamente:
-python3 questcraft_mobile/build_apk.py
-
-# Testes da lógica (não precisam de SDK):
+QUESTCRAFT_HAND_MODEL_DIR=/caminho/para/modelo \
+  gradle -p questcraft_mobile/embedded testReleaseUnitTest assembleRelease
 python3 -m unittest discover -s questcraft_mobile/tests -v
+python3 questcraft_mobile/build_apk.py --help
 ```
 
-Se o arquivo local tiver SHA-256 diferente do oficial, o script para. Só depois
-que você conferir sua procedência, é possível tentar explicitamente com
-`--allow-unverified-apk`. O manifesto ainda precisa declarar `com.qcxr.qcxr` e o
-APK precisa conter um loader arm64 OpenXR; versões diferentes podem quebrar.
-Um loader alternativo também exige `--loader` e, se tiver outro hash,
-`--allow-unverified-loader`.
+Depois execute o construtor passando o APK original e os caminhos das ferramentas, conforme `--help` ou o workflow. O suporte compilado é esperado em `questcraft_mobile/embedded/app/build/outputs/apk/release/app-release-unsigned.apk`. O builder verifica hashes fixados, mescla código/recursos e assina a saída com chave local de depuração. Ele aceita componentes locais correspondentes aos hashes fixados para builds reproduzíveis; consulte `--help`.
 
-O resultado fica em `questcraft-build/QuestCraft-Mobile-debug.apk`, acompanhado
-do checksum e do relatório. Por padrão, a chave de teste fica fora do
-repositório em `~/.android/questcraft-mobile-debug.p12`. Guarde-a com segurança
-se quiser que builds locais posteriores possam ser atualizadas; ela é apenas
-para debug, não para publicar. Não compartilhe a chave.
+## Créditos e direitos
 
-## Instalar e testar no celular
-
-1. Use um telefone **Android 10 ou superior, 64-bit (arm64)**, com câmera e
-   sensores; um VR Box ajuda a visualizar a imagem estéreo. Hardware, suporte
-   OpenGL/Vulkan e desempenho variam: não dá para prometer compatibilidade com
-   todo celular. Mantenha as mãos visíveis para a câmera e a área de jogo livre.
-2. Baixe e instale o **PhoneXR-2.0.1.apk** (versão completa, não BE) da
-   [página oficial](https://github.com/samrat1games/phonexr/releases/tag/v2.0.1).
-   Abra, conceda câmera e instale/selecione o **PhoneXR Runtime** se solicitado.
-3. Instale o APK produzido. Como é assinado com outra chave, ele não pode
-   atualizar o QuestCraft original de mesma identificação. Se precisar remover
-   qualquer versão, **faça backup primeiro**.
-4. Abra o QuestCraft **pela biblioteca do PhoneXR**, não pelo ícone do Android:
-   o PhoneXR precisa iniciar o serviço de câmera de mãos antes de abrir o jogo.
-   Confira o ajuste de rastreamento de mãos e o posicionamento do telefone;
-   controle Bluetooth pode ser necessário para funções sem mapeamento por gesto.
-5. Na primeira abertura, o launcher pode precisar de internet para baixar Java,
-   Vivecraft e outros componentes. É necessária conta Microsoft com
-   **Minecraft: Java Edition**. O runtime e o game podem não funcionar em seu
-   aparelho; se houver erro, guarde o log do Android (`adb logcat`) para análise.
-
-O Android solicitará autorização para instalar aplicativos de fontes externas.
-Só conceda para os arquivos cuja origem você verificou. A câmera opera apenas
-com permissão; interrompa o rastreamento no PhoneXR quando terminar.
+QuestCraft pertence a seus respectivos autores; Minecraft pertence à Mojang/Microsoft. Esta adaptação usa o loader/runtime e ideias do [PhoneXR](https://github.com/samrat1games/phonexr), o [MediaPipe](https://github.com/google-ai-edge/mediapipe) e componentes Monado. As permissões de redistribuição do QuestCraft e do PhoneXR não foram estabelecidas: o repositório PhoneXR consultado não apresentava uma licença geral. **Não redistribua builds que incorporem esses componentes sem confirmar os direitos com os respectivos titulares.** Licenças dos demais componentes e respectivos avisos também devem ser respeitados.

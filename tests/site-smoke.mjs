@@ -29,7 +29,7 @@ async function runCase(name, viewport, apiMode) {
         artifacts: [
           {
             id: id + 1000,
-            name: "QuestCraft-Mobile-debug-experimental",
+            name: "QuestCraft-Mobile-unico-experimental",
             expired: apiMode === "expired-first" && id === 111,
             expires_at: "2026-12-06T23:51:29Z",
           },
@@ -46,6 +46,14 @@ async function runCase(name, viewport, apiMode) {
       /Gorilla Rush|CraftVR/i,
     );
     assert.equal(await page.locator("#instalacao li").count(), 4);
+    assert.match(
+      await page.locator("#instalacao").innerText(),
+      /Nenhum aplicativo auxiliar é necessário/i,
+    );
+    assert.doesNotMatch(
+      await page.locator("#instalacao").innerText(),
+      /Instale o PhoneXR|Abra pelo PhoneXR/i,
+    );
     assert.match(
       await page.locator(".image-caption").innerText(),
       /não é uma captura/i,

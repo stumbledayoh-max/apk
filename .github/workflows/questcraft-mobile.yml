@@ -83,7 +83,7 @@ jobs:
           cp questcraft_mobile/README.md questcraft-build/README-DETALHADO.md
       - uses: actions/upload-artifact@v4
         with:
-          name: QuestCraft-Mobile-debug-experimental
+          name: QuestCraft-Mobile-unico-experimental
           path: questcraft-build/
           if-no-files-found: error
           retention-days: 14
