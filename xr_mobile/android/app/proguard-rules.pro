@@ -1,0 +1,15 @@
+# Native runtime and MediaPipe use class names/reflection across processes.
+-keepattributes *Annotation*,Signature,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable
+-keep class com.xrpocket.mobile.** { *; }
+-keep class org.freedesktop.monado.ipc.MonadoService { *; }
+-keep class org.freedesktop.monado.auxiliary.ActivityLifecycleListener { *; }
+-keep class org.freedesktop.monado.auxiliary.SystemUiController { *; }
+-keep class com.google.mediapipe.** { *; }
+-keep class com.google.common.flogger.** { *; }
+-keep class com.google.protobuf.** { *; }
+-dontwarn org.freedesktop.monado.ipc.**
+-dontwarn org.freedesktop.monado.phonexr.**
+-dontwarn com.google.auto.value.extension.memoized.Memoized
+-dontwarn com.google.mediapipe.proto.CalculatorProfileProto$CalculatorProfile
+-dontwarn com.google.mediapipe.proto.GraphTemplateProto$GraphTemplate
+-dontwarn com.google.mediapipe.proto.GraphTemplateProto$CalculatorGraphTemplate

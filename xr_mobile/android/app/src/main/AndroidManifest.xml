@@ -1,0 +1,44 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.CAMERA" />
+    <uses-permission android:name="android.permission.INTERNET" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CAMERA" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.HIGH_SAMPLING_RATE_SENSORS" />
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29" />
+    <uses-feature android:name="android.hardware.camera.any" android:required="false" />
+    <uses-feature android:name="android.hardware.sensor.gyroscope" android:required="false" />
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="android.intent.category.LAUNCHER" />
+        </intent>
+        <intent>
+            <action android:name="android.intent.action.MAIN" />
+            <category android:name="org.khronos.openxr.intent.category.IMMERSIVE_HMD" />
+        </intent>
+    </queries>
+    <application android:label="XR de Bolso" android:theme="@android:style/Theme.Material.NoActionBar"
+        android:extractNativeLibs="true" android:allowBackup="false" android:requestLegacyExternalStorage="true">
+        <activity android:name="com.xrpocket.mobile.MainActivity" android:exported="true"
+            android:screenOrientation="portrait">
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+        </activity>
+        <provider android:name="androidx.core.content.FileProvider"
+            android:authorities="com.xrpocket.mobile.files" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
+        </provider>
+        <!-- Other OpenXR applications discover the runtime through the standard broker. -->
+        <provider android:name="org.freedesktop.monado.phonexr.RuntimeBroker"
+            android:authorities="org.khronos.openxr.system_runtime_broker" android:exported="true" />
+        <service android:name="org.freedesktop.monado.ipc.MonadoService" android:exported="true" android:process=":monado">
+            <intent-filter><action android:name="org.freedesktop.monado.ipc.CONNECT" /></intent-filter>
+        </service>
+        <service android:name="com.xrpocket.mobile.HandService" android:exported="false"
+            android:foregroundServiceType="camera" android:process=":hands" />
+    </application>
+</manifest>
