@@ -64,7 +64,11 @@ jobs:
             gh run download "$capture" --repo "$GITHUB_REPOSITORY" --name "$capture_artifact" --dir "$RUNNER_TEMP/transfer-capture"
           fi
           if [ -n "$log_job" ]; then
-            gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$log_job/logs" > "$RUNNER_TEMP/transfer-capture/job-log.txt"
+            if ! gh api "repos/$GITHUB_REPOSITORY/actions/jobs/$log_job/logs" > "$RUNNER_TEMP/transfer-capture/job-log.txt" 2> "$RUNNER_TEMP/log-fetch-error.txt"; then
+              error=$(tr '\n' ' ' < "$RUNNER_TEMP/log-fetch-error.txt" | cut -c1-1500)
+              printf '::error title=Log retrieval failed::%s\n' "$error"
+              exit 1
+            fi
           fi
       - name: Transferir arquivos criptografados por objetos temporários
         shell: bash
