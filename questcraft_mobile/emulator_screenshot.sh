@@ -49,13 +49,14 @@ try:
         text = node.get('text', '') or node.get('content-desc', '')
         if text:
             print(text[:250], node.get('bounds', ''))
-    texts = {node.get('text', '') for node in nodes}
-    label = 'Permitir câmera e abrir' if 'Permitir câmera e abrir' in texts else None
+    texts = {node.get('text', '').casefold() for node in nodes}
+    # Android's default Button style can display text in uppercase.
+    label = 'permitir câmera e abrir' if 'permitir câmera e abrir' in texts else None
     if any('does not match the hardware requirements' in text for text in texts):
-        label = 'Continue'
+        label = 'continue'
     if label:
         for node in nodes:
-            if node.get('text') == label:
+            if node.get('text', '').casefold() == label:
                 bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
                 if bounds:
                     x1, y1, x2, y2 = map(int, bounds.groups())
