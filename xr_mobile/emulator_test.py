@@ -65,7 +65,7 @@ def swipe(down=False):
 
 
 def find_button(*names, start='current'):
-    for index in range(5):
+    for index in range(9):
         nodes = dump(f'{start}-{index}')
         if tap(nodes, *names): return True
         swipe()
@@ -203,7 +203,7 @@ def main():
     adb('push', str(probe), '/sdcard/Download/XR-Probe.apk')
     obb = temp / 'main.1.com.xrpocket.probe.obb'; obb.write_bytes(b'XR Pocket test fixture OBB\n')
     adb('push', str(obb), '/sdcard/Download/' + obb.name)
-    for _ in range(3): swipe(down=True)
+    for _ in range(6): swipe(down=True)
     time.sleep(1)
     if not find_button('Selecionar APK', start='apk-button'): raise RuntimeError('Botão de APK não encontrado.')
     choose_download('XR-Probe.apk', 'apk')
@@ -224,7 +224,7 @@ def main():
     if 'com.xrpocket.probe' not in adb('shell', 'pm', 'list', 'packages', 'com.xrpocket.probe'):
         raise RuntimeError('Fixture não foi instalada pelo Package Installer.')
     note('Instalação com confirmação: OK')
-    for _ in range(3): swipe(down=True)
+    for _ in range(6): swipe(down=True)
     if not find_button('Copiar OBB para o jogo', start='copy-button'): raise RuntimeError('Botão de OBB não encontrado.')
     time.sleep(8); note('Após cópia: ' + labels(dump('obb-copy')))
     copied = adb('shell', 'cat', '/sdcard/Android/obb/com.xrpocket.probe/' + obb.name, check=False)

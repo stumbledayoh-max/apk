@@ -1,0 +1,88 @@
+name: Teste do criador BigXR no emulador
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_run:
+        description: 'ID da build BigXR a testar (vazio: última build aprovada da branch)'
+        type: string
+        required: false
+  push:
+    paths:
+      - '.github/workflows/bigxr-creator-test.yml'
+      - 'xr_mobile/creator_emulator_test.py'
+
+permissions:
+  contents: read
+  actions: read
+
+jobs:
+  standalone:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.11.1'
+      - name: Baixar BigXR e compilar fixture OpenXR própria
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BUILD_RUN: ${{ inputs.build_run }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [ -z "$BUILD_RUN" ]; then
+            BUILD_RUN=$(gh run list --workflow xr-mobile.yml --branch "$GITHUB_REF_NAME" --status success --json databaseId --jq '.[0].databaseId')
+          fi
+          [[ "$BUILD_RUN" =~ ^[0-9]+$ ]]
+          echo "Testando BigXR da build $BUILD_RUN"
+          mkdir -p "$RUNNER_TEMP/bigxr-apk" "$RUNNER_TEMP/xr-headers/openxr" "$RUNNER_TEMP/xr-loader/arm64-v8a"
+          gh run download "$BUILD_RUN" --name BigXR-experimental --dir "$RUNNER_TEMP/bigxr-apk"
+          sha256sum "$RUNNER_TEMP/bigxr-apk/BigXR-debug.apk"
+          for header in openxr.h openxr_platform.h openxr_platform_defines.h; do
+            curl --fail --location --retry 3 -o "$RUNNER_TEMP/xr-headers/openxr/$header" \
+              "https://raw.githubusercontent.com/KhronosGroup/OpenXR-SDK/7f9285bce1ce8b69bb75554bf788666579d0c35e/include/openxr/$header"
+          done
+          python3 - <<'PY'
+          import os
+          from pathlib import Path
+          from questcraft_mobile.build_apk import download_checked, LOADER_URL, LOADER_SHA256
+          download_checked(LOADER_URL, Path(os.environ['RUNNER_TEMP'])/'xr-loader/arm64-v8a/libopenxr_loader.so', LOADER_SHA256, github_raw=True)
+          PY
+          if [ ! -d "$ANDROID_HOME/ndk/27.0.12077973" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'ndk;27.0.12077973'
+          fi
+          if [ ! -d "$ANDROID_HOME/cmake/3.22.1" ]; then
+            "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" 'cmake;3.22.1'
+          fi
+          export XR_HEADER_DIR="$RUNNER_TEMP/xr-headers" XR_LOADER_DIR="$RUNNER_TEMP/xr-loader"
+          gradle -p xr_mobile/probe --no-daemon assembleDebug
+      - name: Ativar KVM
+        run: |
+          echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
+          sudo udevadm control --reload-rules
+          sudo udevadm trigger --name-match=kvm
+      - name: Criar, salvar e testar APK sem o criador instalado
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: 35
+          target: google_apis
+          arch: x86_64
+          profile: pixel_6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated -camera-front none
+          disable-animations: true
+          emulator-boot-timeout: 600
+          script: python3 xr_mobile/creator_emulator_test.py
+      - name: Guardar evidências da fixture
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: bigxr-criador-teste-emulador
+          path: bigxr-creator-capture/
+          if-no-files-found: warn
+          retention-days: 14
