@@ -1,0 +1,17 @@
+Verifies
+Verified using v1 scheme (JAR signing): false
+Verified using v2 scheme (APK Signature Scheme v2): false
+Verified using v3 scheme (APK Signature Scheme v3): true
+Verified using v3.1 scheme (APK Signature Scheme v3.1): false
+Verified using v4 scheme (APK Signature Scheme v4): false
+Verified for SourceStamp: false
+Number of signers: 1
+Signer #1 certificate DN: CN=BigXR Local
+Signer #1 certificate SHA-256 digest: 44fe0cfb85716669738dc6014bbf272603072ffa21f5f67fb36f1afdd3a1cbdf
+Signer #1 certificate SHA-1 digest: fac2b9d4b9c12e051c07a90d123e95332d4b515b
+Signer #1 certificate MD5 digest: 386469359b6eeb082ac34359095ce27f
+Signer #1 key algorithm: RSA
+Signer #1 key size (bits): 2048
+Signer #1 public key SHA-256 digest: c88e610e67cfe251ca78098e1496f698e09fcdc79ef9f7c12dc3eac33fa4774a
+Signer #1 public key SHA-1 digest: 8ef42ffee15ed6f2dcbda4fd9bfd354f3a6b91a1
+Signer #1 public key MD5 digest: dccd88aeb583deee3629bb333387f13c

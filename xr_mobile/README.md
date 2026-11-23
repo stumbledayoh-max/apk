@@ -1,44 +1,50 @@
-# XR de Bolso — detalhes do aplicativo nativo
+# BigXR — detalhes do criador nativo
 
-## O que está implementado
+## Fluxo de cópia integrada
 
-- Seletor Android para um APK e um OBB opcional. O APK selecionado é copiado para o cache privado, inspecionado e enviado ao instalador do Android; não é modificado nem instalado silenciosamente.
-- Cópia opcional do OBB após a instalação para `Android/obb/<pacote>/`, apenas se o nome for `main.<número>.<pacote>.obb` ou `patch.<número>.<pacote>.obb`. Arquivos existentes só são substituídos após confirmação; uma cópia temporária evita truncá-los durante a transferência. Algumas versões/fabricantes podem negar acesso à pasta.
-- Broker OpenXR padrão, serviço Monado e bibliotecas ARM64 no APK do launcher. Jogos separados só conseguem usar o runtime se seu loader e suas declarações de visibilidade/compatibilidade forem adequados. Jogos de Quest/Pico com dependências específicas podem falhar.
-- Câmera traseira com MediaPipe Hand Landmarker e prévia nativa dos 21 pontos por mão. Uma ponte PH5 envia posições, orientação e gestos **aproximados** como entradas semelhantes a controles ao runtime local. Não é uma implementação completa de `XR_EXT_hand_tracking` ou rastreamento calibrado 6DoF.
-- Indicador nativo de giroscópio. O runtime integrado contém o driver de sensores Android; exibir dados no launcher não comprova orientação correta dentro de um jogo.
+O criador funciona no próprio Android. Seleciona-se um APK assinado que o usuário tem direito de modificar, um nome, uma imagem opcional e até um OBB opcional. O app verifica a assinatura original, o ZIP e os DEX, injeta uma tela inicial e os DEX/bibliotecas do suporte BigXR, atualiza os recursos de ícone quando solicitado e assina a cópia localmente com uma chave RSA do Android Keystore. A assinatura gerada é verificada antes de a cópia ficar disponível para salvar ou instalar.
 
-## Permissões e privacidade
+O pacote, a atividade e os dados do jogo original permanecem, mas o arquivo é modificado e não mantém a assinatura oficial. Não há obtenção automática de jogos, remoção de DRM, instalação silenciosa ou garantia de licença. A chave local pertence à instalação do BigXR: desinstalar o BigXR ou limpar seus dados pode inutilizar futuras atualizações do jogo criado. A cópia não atualiza diretamente a versão oficial; desinstalar a versão original pode apagar dados. Cada build do próprio BigXR na CI também usa uma chave de depuração diferente.
 
-A câmera é solicitada somente quando você escolhe ativar mãos. O serviço em primeiro plano permanece ativo ao abrir outro aplicativo e deve ser parado explicitamente pelo botão **Parar câmera** ou pela notificação. Android 13+ pode solicitar permissão de notificações para que essa notificação seja visível. Os quadros da câmera são processados no aparelho; a prévia recebe somente os pontos detectados.
+Para evitar conflitos entre jogos gerados, o loader ARM64 presente no APK original precisa conter exatamente os identificadores de broker OpenXR reconhecidos. Eles são substituídos por uma autoridade privada derivada do pacote, sem alterar o tamanho do ELF. O runtime apontará para o mesmo pacote. O criador rejeita loaders desconhecidos, bibliotecas ou classes conflitantes, APKs divididos, múltiplas telas iniciais e pacotes longos demais para o runtime fixado. Outras ABIs são retiradas da cópia; o resultado é ARM64. Um jogo com `libopenxr_loader.so` reconhecível ainda pode não funcionar: depende de APIs, recursos gráficos, serviços, direitos e hardware que o BigXR não fornece.
 
-A ponte de controles usa UDP em `127.0.0.1:42424`. Essa comunicação não é criptografada nem isolada de outros aplicativos locais. O broker e o serviço Monado precisam ser públicos para que jogos instalados separadamente possam acessá-los. O launcher pede `REQUEST_INSTALL_PACKAGES`, mas a instalação é sempre iniciada e confirmada pelo usuário. Não há permissão de instalação silenciosa nem acesso geral a todos os arquivos.
+O ícone escolhido é recortado ao centro e convertido em PNG de 512×512. Um OBB opcional é incluído no APK como dado e conferido por SHA-256 antes de ser copiado para `getObbDir()` no primeiro início. O nome deve ser `main.<número>.<pacote>.obb` ou `patch.<número>.<pacote>.obb`. Um arquivo diferente já existente não é sobrescrito; o Android ou fabricante pode bloquear a pasta. O tamanho máximo é 1,6 GB para o APK de entrada, 1,7 GB para APK + OBB e 1,8 GB para a saída; é necessário mais espaço temporário para edição e assinatura. Exportar pelo seletor Android evita depender do cache privado.
+
+## Mãos, sensores e privacidade
+
+A tela integrada solicita câmera apenas se escolhida. O serviço em primeiro plano processa imagens no aparelho com MediaPipe e envia estados aproximados de controle ao Monado via UDP local, porta 42424. Outros aplicativos locais podem enviar pacotes nessa porta. Não há implementação completa de `XR_EXT_hand_tracking`, rastreamento de corpo, posição absoluta ou calibragem. Quando visível, a notificação permite parar a câmera; em Android 13+ ela pode não aparecer sem permissão de notificações. O serviço tenta parar quando as atividades do jogo deixam o primeiro plano; jogos que usam processos ou ciclos de vida diferentes precisam de validação adicional. Verifique o indicador de câmera e as configurações do Android.
+
+O Monado contém o driver de sensores Android. O aplicativo também mostra o giroscópio no modo antigo, mas isso não prova funcionamento dentro de jogos. O modo antigo de launcher instala o jogo separadamente e usa broker público padrão, que pode conflitar com outros runtimes. O APK criado usa seu próprio broker privado e não precisa do launcher ou de outro runtime instalado.
 
 ## Compilação
 
-A CI em [`.github/workflows/xr-mobile.yml`](../.github/workflows/xr-mobile.yml) usa JDK 17, Gradle 8.11.1, Android SDK/build-tools 35, Python 3 e apktool 2.11.1. Modelo e runtime são fixados por SHA-256. Para compilar localmente, coloque o modelo `hand_landmarker.task` em um diretório e obtenha o APK fixado do runtime usado na CI; então execute:
+A CI em [`.github/workflows/xr-mobile.yml`](../.github/workflows/xr-mobile.yml) usa JDK 17, Gradle 8.11.1, SDK/build-tools 35, Python 3, apktool 2.11.1, ARSCLib 1.4.0 e apksig 8.7.3. O runtime e o modelo, assim como o JAR ARSCLib, são verificados por SHA-256. A tarefa Gradle `prepareArscLibForAndroid` remove do JAR as cópias de `org.xmlpull.v1` para usar as interfaces da plataforma Android; isso evita incompatibilidade com o `FileProvider`. ARSCLib é Apache-2.0; o runtime binário é proveniente de [PhoneXR](https://github.com/samrat1games/phonexr) no commit `f393ea8c3f4579995efb7402d61a2108121b0900`, com direitos de redistribuição ainda não confirmados.
+
+Para compilar localmente após obter as ferramentas, o modelo e o runtime fixados:
 
 ```sh
-XR_HAND_MODEL_DIR=/caminho/do/modelo \
-  gradle -p xr_mobile/android testReleaseUnitTest assembleRelease
+export XR_HAND_MODEL_DIR=/caminho/do/modelo
+export XR_ARSCLIB_JAR=/caminho/ARSCLib-1.4.0.jar
+export XR_INJECTION_ASSETS_DIR=/caminho/para/assets-gerados
+
+gradle -p xr_mobile/embedded assembleRelease
+python3 xr_mobile/build_payload.py \
+  --helper xr_mobile/embedded/app/build/outputs/apk/release/app-release-unsigned.apk \
+  --runtime /caminho/phonexr-runtime.apk --apktool-jar /caminho/apktool.jar \
+  --output "$XR_INJECTION_ASSETS_DIR"
+gradle -p xr_mobile/android testReleaseUnitTest assembleRelease
 python3 -m unittest discover -s xr_mobile/tests -v
 python3 xr_mobile/build_runtime.py \
   --app xr_mobile/android/app/build/outputs/apk/release/app-release-unsigned.apk \
-  --runtime /caminho/phonexr-runtime.apk \
-  --apktool-jar /caminho/apktool.jar \
+  --runtime /caminho/phonexr-runtime.apk --apktool-jar /caminho/apktool.jar \
   --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
-  --debug-keystore /caminho/xr-debug.p12 \
-  --output xr-mobile-build/XR-de-Bolso-debug.apk
+  --debug-keystore /caminho/xr-debug.p12 --output xr-mobile-build/BigXR-debug.apk
 ```
 
-O empacotador verifica o hash do runtime, incorpora as bibliotecas e classes IPC, aplica uma guarda para uma extensão EGL opcional e assina com uma chave de teste. Também marca o cliente Monado com `DF_1_NODELETE`, mantendo a biblioteca mapeada até o processo cliente terminar: isso evitou um crash observado no emulador depois de `xrDestroyInstance`, mas é uma solução experimental e mantém a biblioteca na memória por mais tempo. Não substitui uma correção no código upstream.
+O empacotador aplica uma guarda a uma extensão EGL opcional e marca o cliente Monado com `DF_1_NODELETE`, mantendo a biblioteca mapeada até o processo terminar. Essa mitigação evitou um crash observado no emulador, mas não substitui uma correção no upstream e pode manter memória por mais tempo. O ZIP é alinhado para 16 KB, mas os segmentos ELF do Monado têm alinhamento de 4 KB; compatibilidade com aparelhos que exigem páginas de 16 KB não está comprovada.
 
-O APK `xr_mobile/probe/` é uma fixture de diagnóstico separada, **não é um jogo**, e não é necessário para o usuário. A [captura 45102870985](https://github.com/stumbledayoh-max/apk/actions/runs/45102870985) instalou a fixture mediante confirmação, copiou um OBB sintético, iniciou/parou a câmera e criou/encerrou três instâncias OpenXR a partir de outro pacote. Em uma sessão OpenXR sem renderização, enviou pacotes PH5 sintéticos e observou estado de gatilho, pose e movimento do sensor virtual. No [teste diferencial 45103608864](https://github.com/stumbledayoh-max/apk/actions/runs/45103608864), a orientação foi medida com o giroscópio virtual zerado e novamente após aplicar rotação; houve uma mudança maior que 11 graus. Um teste de instrumentação executou o modelo no [exemplo de mãos do MediaPipe](https://github.com/google-ai-edge/mediapipe-samples/blob/b74eeb6d4952d97f244e03fefe4513637e59210f/examples/hand_landmarker/android/app/src/androidTest/assets/test_image.jpg), detectando pontos e um gesto. Cópias resumidas dos resultados estão em [`diagnosticos/`](diagnosticos/). Nada disso prova gameplay, gestos em câmera ao vivo ou funcionamento em celular físico. O fluxo completo está em [`.github/workflows/xr-mobile-capture.yml`](../.github/workflows/xr-mobile-capture.yml).
+## Testes
 
-## Limitações importantes
+A fixture em `xr_mobile/probe/` é um aplicativo próprio de diagnóstico, **não é um jogo**. No [teste final 45281192075](https://github.com/stumbledayoh-max/apk/actions/runs/45281192075), o criador selecionou APK, imagem e OBB da fixture, gerou e assinou a cópia, salvou-a e a instalou. Depois de desinstalar o criador, a cópia iniciou a câmera e o modelo, extraiu o OBB e completou três ciclos OpenXR e entradas sintéticas em uma sessão sem renderização. A câmera acrescentada permaneceu opcional. Os resultados resumidos estão em [`diagnosticos/45281192075/`](diagnosticos/45281192075/); uma execução anterior está em [`diagnosticos/45276416280/`](diagnosticos/45276416280/). O fluxo pode ser repetido por [`.github/workflows/bigxr-creator-test.yml`](../.github/workflows/bigxr-creator-test.yml). Isso não valida um jogo real nem um celular físico.
 
-Esta é uma prova de conceito, não um emulador universal. Instalação, broker, modelo ou sensor aparecendo não provam que o jogo desenhe quadros ou aceite controles. O resultado da câmera depende do posicionamento das mãos no campo de visão; não há calibração física, rastreamento de corpo, posição absoluta nem garantia de baixa latência. A aplicação e o runtime precisam ser testados em celular real com um jogo específico.
-
-O ZIP do APK passa na verificação de alinhamento de 16 KB, mas as bibliotecas Monado fixadas têm segmentos ELF de 4 KB; portanto, isso não comprova compatibilidade com dispositivos de páginas de 16 KB. A autoridade `org.khronos.openxr.system_runtime_broker` também pode entrar em conflito com outro runtime já instalado.
-
-O runtime binário é proveniente de [PhoneXR](https://github.com/samrat1games/phonexr) no commit `f393ea8c3f4579995efb7402d61a2108121b0900`, e o modelo é do MediaPipe. Os direitos de redistribuição do PhoneXR não foram confirmados; confirme-os antes de distribuir builds incorporando esse componente.
+Nos testes anteriores do modo separado, a [captura 45102870985](https://github.com/stumbledayoh-max/apk/actions/runs/45102870985) passou seleção/instalação da fixture, cópia de OBB sintético, início e parada da câmera e três ciclos de criação/destruição OpenXR. No [teste 45103608864](https://github.com/stumbledayoh-max/apk/actions/runs/45103608864), entradas PH5 sintéticas e mudança do giroscópio virtual chegaram a uma sessão headless. MediaPipe também detectou mãos em uma foto de referência. São evidências em emulador, não gameplay, rastreamento de mãos ao vivo ou teste em celular físico. Resumos anteriores estão em [`diagnosticos/`](diagnosticos/).

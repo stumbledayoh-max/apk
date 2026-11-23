@@ -1,0 +1,11 @@
+D/AddWorkspaceItemsTask( 2458): Adding item info to workspace: ItemInfo(id=7 type=APP container=# com.android.launcher3.logger.LauncherAtom$ContainerInfo@21a259b targetComponent=ComponentInfo{com.xrpocket.probe/com.bigxr.embedded.BootstrapActivity} screen=1 cell(0,0) span(1,1) minSpan(1,1) rank=0 user=UserHandle{0} title=BigXRProbe supportsMultiInstance=false nonResizeable=false)
+I/XRProbe ( 5405): BROKER sem runtime
+I/XRProbe ( 5405): LOADER_INIT 0
+W/BigXRHandsCamer( 5552): type=1400 audit(0.0:64): avc:  denied  { getattr } for  path="/dev/pmsg0" dev="tmpfs" ino=747 scontext=u:r:untrusted_app_32:s0:c210,c256,c512,c768 tcontext=u:object_r:pmsg_device:s0 tclass=chr_file permissive=0 app=com.xrpocket.probe
+W/BigXRHandsCamer( 5552): type=1400 audit(0.0:65): avc:  denied  { getattr } for  path="/dev/pmsg0" dev="tmpfs" ino=747 scontext=u:r:untrusted_app_32:s0:c210,c256,c512,c768 tcontext=u:object_r:pmsg_device:s0 tclass=chr_file permissive=0 app=com.xrpocket.probe
+W/BigXRHandsCamer( 5552): type=1400 audit(0.0:66): avc:  denied  { getattr } for  path="/dev/pmsg0" dev="tmpfs" ino=747 scontext=u:r:untrusted_app_32:s0:c210,c256,c512,c768 tcontext=u:object_r:pmsg_device:s0 tclass=chr_file permissive=0 app=com.xrpocket.probe
+I/BigXRHands( 5552): Modelo de mãos carregado
+I/XRProbe ( 5405): CREATE_INSTANCE cycle=1 result=0
+I/XRProbe ( 5405): GET_SYSTEM cycle=1 result=0
+I/XRProbe ( 5405): DESTROY_INSTANCE cycle=1 result=0
+I/BigXRHands( 5552): Câmera de mãos iniciada
