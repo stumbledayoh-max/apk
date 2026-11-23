@@ -23,10 +23,6 @@ REPORT=capture/diagnostico.txt
 for delay in 8 22 30; do
   sleep "$delay"
   elapsed=$(( ${elapsed:-0} + delay ))
-  if [ "$elapsed" -eq 8 ]; then
-    # Algumas imagens do Android ainda exibem a confirmação de tela cheia.
-    adb shell input keyevent KEYCODE_ENTER >/dev/null 2>&1 || true
-  fi
   {
     echo "--- foco após ${elapsed}s ---"
     adb shell dumpsys window | grep -E 'mCurrentFocus|mFocusedApp' || true
@@ -38,16 +34,29 @@ for delay in 8 22 30; do
     timeout 15s adb shell uiautomator dump /sdcard/questcraft-window.xml >/dev/null 2>&1 || true
     adb shell cat /sdcard/questcraft-window.xml > capture/window.xml 2>/dev/null || true
     python3 - <<'PY' >> "$REPORT" 2>&1
+import re
+import subprocess
 import xml.etree.ElementTree as ET
-from pathlib import Path
 try:
     root = ET.parse('capture/window.xml').getroot()
+    nodes = list(root.iter('node'))
     print('--- textos acessíveis na tela ---')
-    for node in root.iter('node'):
+    for node in nodes:
         text = node.get('text', '') or node.get('content-desc', '')
         if text:
             print(text[:250], node.get('bounds', ''))
-except (ET.ParseError, OSError):
+    # O aviso acima apareceu no emulador por não cumprir requisitos de hardware.
+    # Seguir só quando esse diálogo específico estiver presente.
+    if any('does not match the hardware requirements' in node.get('text', '') for node in nodes):
+        for node in nodes:
+            if node.get('text') == 'Continue':
+                bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
+                if bounds:
+                    x1, y1, x2, y2 = map(int, bounds.groups())
+                    subprocess.run(['adb', 'shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2)], timeout=10)
+                    print('Selecionado Continue no aviso de hardware do emulador.')
+                    break
+except (ET.ParseError, OSError, subprocess.TimeoutExpired):
     print('Nenhum diálogo acessível via UIAutomator.')
 PY
   fi

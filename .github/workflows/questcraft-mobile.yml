@@ -5,6 +5,7 @@ on:
   push:
     paths:
       - 'questcraft_mobile/**'
+      - '!questcraft_mobile/emulator_screenshot.sh'
       - '.github/workflows/questcraft-mobile.yml'
 
 permissions:
@@ -34,12 +35,18 @@ jobs:
             https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar
           java -jar "$RUNNER_TEMP/apktool.jar" --version
       - name: Adaptar e assinar APK oficial para arm64
+        shell: bash
         run: |
-          python3 questcraft_mobile/build_apk.py \
+          set -o pipefail
+          if ! python3 questcraft_mobile/build_apk.py \
             --apktool-jar "$RUNNER_TEMP/apktool.jar" \
             --build-tools "$ANDROID_HOME/build-tools/35.0.0" \
             --debug-keystore "$RUNNER_TEMP/questcraft-debug.p12" \
-            --output questcraft-build/QuestCraft-Mobile-debug.apk
+            --output questcraft-build/QuestCraft-Mobile-debug.apk 2>&1 | tee "$RUNNER_TEMP/build.log"; then
+            message=$(tail -n 8 "$RUNNER_TEMP/build.log" | tr '\n' ' ' | cut -c1-2000)
+            printf '::error title=Falha ao gerar o APK::%s\n' "$message"
+            exit 1
+          fi
       - name: Instruções no pacote
         run: |
           cp questcraft_mobile/LEIA-PRIMEIRO.txt questcraft-build/LEIA-PRIMEIRO.txt
