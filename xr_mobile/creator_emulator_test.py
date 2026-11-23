@@ -20,6 +20,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from questcraft_mobile import integrated
+from xr_mobile import build_runtime
 from xr_mobile import emulator_test as ui
 
 OUT = Path('bigxr-creator-capture'); OUT.mkdir(exist_ok=True)
@@ -146,11 +147,14 @@ def inspect_apk(apk: Path) -> None:
         if len(names) != len(set(names)): raise RuntimeError('Entradas ZIP duplicadas')
         required_files = {
             'assets/hand_landmarker.task', 'assets/bigxr_obb/manifest.json', 'assets/bigxr_obb/' + OBB_NAME,
+            build_runtime.OLFX_LICENSE_PATH,
             'lib/arm64-v8a/libopenxr_loader.so', 'lib/arm64-v8a/libopenxr_monado.so',
             'lib/arm64-v8a/libmonado-service.so', 'res/drawable-nodpi/bigxr_custom_icon.png',
         }
         if required_files - set(names): raise RuntimeError('Arquivos integrados ausentes: ' + repr(required_files - set(names)))
         if archive.getinfo('assets/hand_landmarker.task').compress_type != zipfile.ZIP_STORED: raise RuntimeError('Modelo precisa estar sem compressão')
+        if hashlib.sha256(archive.read(build_runtime.OLFX_LICENSE_PATH)).hexdigest() != build_runtime.OLFX_LICENSE_SHA256:
+            raise RuntimeError('Licença dos componentes OLFX está ausente ou alterada')
         if archive.read('assets/bigxr_obb/' + OBB_NAME) != OBB_CONTENT: raise RuntimeError('OBB embutido é diferente do selecionado')
         obb_meta = json.loads(archive.read('assets/bigxr_obb/manifest.json'))
         if obb_meta['sha256'] != hashlib.sha256(OBB_CONTENT).hexdigest(): raise RuntimeError('Hash do OBB incorreto')
@@ -172,8 +176,9 @@ def inspect_apk(apk: Path) -> None:
                 found = integrated.dex_classes(archive.read(name))
                 if classes & found: raise RuntimeError('Classes DEX duplicadas')
                 classes.update(found)
-        for required in ('Lcom/bigxr/embedded/BootstrapActivity;', 'Lcom/bigxr/embedded/HandService;',
-                         'Lorg/freedesktop/monado/ipc/MonadoService;', 'Lorg/freedesktop/monado/phonexr/RuntimeBroker;'):
+        required_classes = {'Lcom/bigxr/embedded/BootstrapActivity;', 'Lcom/bigxr/embedded/HandService;',
+                            'Lorg/freedesktop/monado/ipc/MonadoService;', 'Lorg/freedesktop/monado/phonexr/RuntimeBroker;'}
+        for required in required_classes | build_runtime.OLFX_COMPONENT_CLASSES:
             if required not in classes: raise RuntimeError('Classe integrada ausente: ' + required)
     digest = hashlib.sha256(apk.read_bytes()).hexdigest()
     ui.note('APK próprio: assinatura v2/v3, zipalign 16 KB, ícone, OBB, DEX e runtime conferidos. SHA-256: ' + digest)
@@ -204,11 +209,12 @@ def install_and_exercise():
     for _ in range(35):
         time.sleep(2)
         log = ui.adb('logcat', '-d', '-v', 'brief', check=False, timeout=40)
-        if 'Modelo de mãos carregado' in log and 'Câmera de mãos iniciada' in log: break
-    else: raise RuntimeError('Câmera/MediaPipe não iniciaram no APK autônomo: ' + log[-6000:])
+        if ('Modelo de mãos carregado' in log and 'Câmera de mãos iniciada' in log
+                and 'OLFX_HAND_PIPELINE_FRAME_OK' in log): break
+    else: raise RuntimeError('Câmera/modelo/base OLFX não processaram quadro no APK autônomo: ' + log[-6000:])
     copied = ui.adb('shell', 'cat', '/sdcard/Android/obb/' + PACKAGE + '/' + OBB_NAME, check=False)
     if copied.encode() != OBB_CONTENT: raise RuntimeError('OBB embutido não foi extraído corretamente: ' + repr(copied))
-    ui.note('APK autônomo iniciou câmera e modelo, e extraiu o OBB de teste.')
+    ui.note('APK autônomo processou quadro de câmera com componentes OLFX e modelo, e extraiu o OBB de teste.')
     (OUT / 'hands-log.txt').write_text('\n'.join(x for x in log.splitlines() if 'BigXRHands' in x or 'XRProbe' in x) + '\n', encoding='utf-8')
     ui.adb('shell', 'am', 'force-stop', PACKAGE, check=False)
     ui.adb('emu', 'sensor', 'set', 'gyroscope', '0:0:0', check=False)

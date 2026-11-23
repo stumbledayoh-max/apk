@@ -198,7 +198,13 @@ def main():
     # Activate the camera while the launcher is visible, as required by Android.
     if not find_button('Ativar e testar mãos', start='hands'):
         raise RuntimeError('Botão de mãos não encontrado.')
-    time.sleep(18)
+    for _ in range(45):
+        time.sleep(2)
+        camera_log = adb('logcat', '-d', '-v', 'brief', check=False, timeout=40)
+        if 'OLFX_HAND_PIPELINE_FRAME_OK' in camera_log: break
+    else:
+        raise RuntimeError('A câmera do launcher não processou um quadro pela base OLFX: ' + camera_log[-4000:])
+    note('Câmera do launcher processou quadro pelo pipeline baseado no OLFX.')
     screenshot('hands.png')
     note('Tela de mãos: ' + labels(dump('hands-active')))
     adb('emu', 'sensor', 'set', 'gyroscope', '0.4:0.2:0.1', check=False)
