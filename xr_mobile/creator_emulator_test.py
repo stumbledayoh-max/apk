@@ -87,8 +87,9 @@ def create_ui(host: Path, probe: Path, temp: Path) -> Path:
     click_from_top('Criar APK com BigXR', 'create')
     time.sleep(2); nodes = ui.dump('confirm-create')
     if not ui.tap(nodes, 'Criar cópia'): raise RuntimeError('Confirmação não encontrada: ' + ui.labels(nodes))
-    # The status appears below the create button, sometimes outside the viewport.
-    time.sleep(1); ui.swipe()
+    # The status sits between the create and save buttons. A blind full swipe
+    # can skip past it, so only reposition when neither is in the viewport.
+    time.sleep(1)
     for attempt in range(80):
         time.sleep(4)
         nodes = ui.dump(f'build-{attempt:02}')
@@ -97,6 +98,15 @@ def create_ui(host: Path, probe: Path, temp: Path) -> Path:
             ui.note('Criador confirmou: ' + text[-1000:]); break
         if 'Não foi possível criar' in text or 'Memória insuficiente' in text:
             raise RuntimeError('Falha no criador: ' + text)
+        create_visible = 'Criar APK com BigXR' in text
+        save_visible = 'Salvar APK criado' in text
+        if not create_visible and not save_visible:
+            below = any(section in text for section in ('03 / ALTERNATIVO', '04 / SENSORES', '05 / ABRIR'))
+            ui.swipe(down=below)
+        elif create_visible and not save_visible:
+            ui.adb('shell', 'input', 'swipe', '540', '1550', '540', '1100', '350')
+        elif save_visible and not create_visible:
+            ui.adb('shell', 'input', 'swipe', '540', '1100', '540', '1550', '350')
     else: raise RuntimeError('Criação demorou mais de 320 segundos: ' + ui.labels(nodes))
     ui.screenshot('03-criado.png')
     click_from_top('Salvar APK criado', 'save')
