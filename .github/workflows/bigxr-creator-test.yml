@@ -11,6 +11,7 @@ on:
     paths:
       - '.github/workflows/bigxr-creator-test.yml'
       - 'xr_mobile/creator_emulator_test.py'
+      - 'xr_mobile/emulator_test.py'
 
 permissions:
   contents: read

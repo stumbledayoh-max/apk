@@ -73,15 +73,23 @@ def find_button(*names, start='current'):
 
 
 def choose_download(filename, key):
+    def select(nodes):
+        if tap(nodes, filename): return True
+        # The Android image grid uses an accessibility description containing
+        # filename, size and date rather than the filename as an exact label.
+        for node in nodes:
+            description = node.get('content-desc', '')
+            if description.startswith(filename + ', ') and tap([node], description): return True
+        return False
     time.sleep(3)
     nodes = dump(key + '-picker')
-    if tap(nodes, filename): return
+    if select(nodes): return
     if tap(nodes, 'Show roots', 'Show navigation drawer', 'Browse', 'Abrir menu de navegação'):
         time.sleep(1); nodes = dump(key + '-roots')
         if not tap(nodes, 'Downloads', 'Download'):
             raise RuntimeError('Seletor sem Downloads: ' + labels(nodes))
         time.sleep(2); nodes = dump(key + '-downloads')
-        if tap(nodes, filename): return
+        if select(nodes): return
     raise RuntimeError('Arquivo não encontrado no seletor: ' + labels(nodes))
 
 
