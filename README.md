@@ -1,35 +1,29 @@
-# QuestCraft Mobile — port experimental
+# XR de Bolso — launcher Android experimental
 
-Este repositório é dedicado à adaptação **não oficial e experimental** do QuestCraft 6.0.0 para Android. O gerador em [`questcraft_mobile/`](questcraft_mobile/README.md) incorpora runtime OpenXR, ponte de câmera e modelo de mãos **no mesmo APK**. Não é necessário instalar o aplicativo PhoneXR separadamente. A integração não foi validada em celular físico: pode não abrir e não há prova de gameplay, mãos ou giroscópio funcionando.
+Aplicativo **Android nativo**, não uma página HTML. Ele permite escolher um APK de jogo e, opcionalmente, um arquivo OBB; inclui no próprio aplicativo um runtime Monado/PhoneXR e um modelo MediaPipe para experimentar mãos. **Não é preciso instalar o aplicativo PhoneXR ou outro runtime à parte.**
 
-O APK do GoFile não pôde ser baixado neste ambiente. A build automática usa o release oficial de mesmo nome e confere seu hash. Os jogos web e o antigo launcher Android que não pertenciam ao QuestCraft foram removidos.
+O Android instala o jogo escolhido como um aplicativo separado e pede sua confirmação. O launcher não executa APKs dentro do seu próprio processo e **não transforma qualquer jogo Android ou Quest em um jogo de celular**. A integração só pode ser tentada com jogos ARM64 que usem um loader OpenXR capaz de descobrir o runtime; mesmo neles, compatibilidade e gameplay não estão comprovados.
 
 ## Baixar e testar
 
-1. Na [página da build](https://github.com/stumbledayoh-max/apk/actions/workflows/questcraft-mobile.yml?query=branch%3Aarena%2Fe3a80795-apk), procure uma execução bem-sucedida com o artefato `QuestCraft-Mobile-unico-experimental` (o GitHub normalmente pede login). Não use o artefato antigo `QuestCraft-Mobile-debug-experimental`, que dependia do PhoneXR instalado à parte.
-2. Extraia o ZIP e instale `QuestCraft-Mobile-debug.apk` em Android 10+ ARM64. Abra-o pelo ícone e permita a câmera se quiser tentar os gestos.
-3. Leia o [guia completo](questcraft_mobile/README.md) sobre assinatura, backup e limitações. **Faça backup antes de desinstalar outra versão**, pois isso pode apagar dados. O jogo completo original exige uma conta Microsoft com Minecraft: Java Edition; o lançamento também menciona uma demo, não verificada no port.
+A [build testada no emulador](https://github.com/stumbledayoh-max/apk/actions/runs/45102603776) contém o artefato `XR-de-Bolso-experimental`. Baixe o ZIP e extraia `XR-de-Bolso-debug.apk` (o GitHub pode exigir login e os artefatos expiram). O arquivo é uma build de teste para Android 10+ ARM64. SHA-256: `a068b8d7bf9cacfb36252169fa76d6f47a3daf43b73581202f6c5d30620858ad`.
 
-O APK é experimental e pode falhar. As permissões de redistribuição de componentes do QuestCraft e PhoneXR não foram estabelecidas; consulte os titulares antes de compartilhar builds incorporando-os.
+A [lista de builds](https://github.com/stumbledayoh-max/apk/actions/workflows/xr-mobile.yml?query=branch%3Aarena%2Fe3a80795-apk) pode conter versões posteriores com assinatura de teste diferente.
 
-## Página informativa
+1. Instale e abra o **XR de Bolso**. Use apenas APKs e dados de fontes confiáveis.
+2. Toque em **Selecionar APK**. O app lê o pacote e informa se encontrou um loader OpenXR, mas isso não garante compatibilidade. Apenas APKs únicos são aceitos; conjuntos divididos `.apks`, `.apkm` e `.xapk` não são suportados.
+3. Se houver OBB, selecione o arquivo original `main.<versão>.<pacote>.obb` ou `patch.<versão>.<pacote>.obb`. Depois de instalar o APK, toque em **Copiar OBB para o jogo**. Alguns aparelhos podem bloquear a gravação em `Android/obb`; nesse caso é necessário copiar o arquivo por outro meio permitido pelo aparelho.
+4. Em **Instalar jogo**, autorize instalações para o launcher se o Android pedir e confirme a instalação na tela do sistema. O launcher não desinstala versões anteriores; diferenças de assinatura podem impedir atualizações.
+5. Para experimentar mãos, toque em **Ativar e testar mãos**, permita a câmera traseira e observe os pontos na prévia. A câmera **continua ligada em segundo plano até você tocar em Parar câmera**, no aplicativo ou na notificação. Depois, tente **Abrir jogo instalado**.
 
-A página em `src/` não é o jogo e não gera APK no navegador; reúne o link da build, instruções e estado das imagens. Para executá-la:
+A leitura do giroscópio aparece na tela quando o sensor existe. O runtime integrado contém suporte aos sensores Android, mas **não há validação de giroscópio ou de gestos dentro de jogos em celular físico**. As mãos detectadas são convertidas em posições e comandos aproximados de controle; isto **não implementa rastreamento nativo de dedos em todos os jogos**. Um controle externo pode ser necessário.
 
-```sh
-npm ci
-npm run dev -- --host 0.0.0.0
-```
+## Estado e segurança
 
-A imagem de divulgação em `public/images/questcraft-oficial.jpg` vem do [QuestCraft oficial](https://github.com/QuestCraftPlusPlus/QuestCraft/blob/6.0.0/QCSimple3.jpg). Ela é referência, **não uma captura do port**.
-
-`public/images/questcraft-port-emulador.jpg` mostra o aviso real de hardware em um emulador durante uma **versão anterior**, que voltou à tela inicial após Continue. Ela não mostra gameplay nem comprova o APK único ou um celular físico.
-
-## Testes
-
-```sh
-npm ci && npm run build
-python3 -m unittest discover -s questcraft_mobile/tests -v
-# Com Chromium instalado e o servidor Vite rodando:
-npm run test:site
-```
+- No [teste em emulador Android 15](https://github.com/stumbledayoh-max/apk/actions/runs/45102870985), a seleção e instalação de um APK de teste, a cópia de um OBB de teste, o início e a parada da câmera e a abertura/fechamento de três instâncias OpenXR passaram. Uma sessão sem renderização também recebeu comandos de mão sintéticos e registrou mudança de orientação com o giroscópio virtual. O MediaPipe detectou mãos e um gesto em uma foto de referência. Isso **não é gameplay**, câmera em tempo real com uma pessoa, nem teste em celular físico.
+- A compilação e a assinatura não demonstram que um jogo funcione. Ainda são necessários testes reais de imagem, interação, desempenho, orientação, gestos e cópia de OBB em diferentes versões do Android.
+- As bibliotecas Monado incorporadas usam alinhamento ELF de 4 KB; não há garantia de execução em aparelhos que exigem páginas de memória de 16 KB.
+- O serviço OpenXR e o broker são expostos a outros aplicativos para permitir a conexão; a ponte de mãos envia estados aproximados apenas por UDP local (`127.0.0.1:42424`). A prévia mostra pontos, não envia quadros da câmera ao launcher.
+- O APK tem assinatura **de depuração**, não é de produção e usa uma chave gerada em cada execução da CI. Atualizar entre builds pode exigir desinstalação; **desinstalar pode apagar dados**.
+- O APK incorpora um runtime binário fixado do PhoneXR/Monado e MediaPipe. As permissões de redistribuição dos componentes PhoneXR não foram estabelecidas; confirme os direitos com os titulares antes de redistribuir o binário. Não inclua APKs ou OBBs de terceiros sem autorização.
+- [`xr_mobile/README.md`](xr_mobile/README.md) reúne detalhes de compilação e limitações. O antigo experimento específico do QuestCraft permanece em [`questcraft_mobile/`](questcraft_mobile/README.md); a página HTML antiga não é o novo launcher.

@@ -1,0 +1,63 @@
+I/XRProbe ( 2272): BROKER com.xrpocket.mobile / libopenxr_monado.so
+I/XRProbe ( 2272): LOADER_INIT 0
+I/monado-ipc-client( 2272): blockingConnect
+I/monado-ipc-client( 2272): bind
+I/monado-ipc-client( 2272): onServiceConnected
+I/MonadoImpl( 2418): connect: given fd 90
+I/MonadoImpl( 2418): canDrawOverOtherApps
+I/MonadoImpl( 2418): passAppSurface
+I/MonadoImpl( 2418): connect: fd ownership transferred
+I/monado-ipc-client( 2272): Socket fd 116
+I/XRProbe ( 2272): CREATE_INSTANCE cycle=1 result=0
+I/XRProbe ( 2272): GET_SYSTEM cycle=1 result=0
+I/MonadoImpl( 2418): shutdown
+I/XRProbe ( 2272): DESTROY_INSTANCE cycle=1 result=0
+I/monado-ipc-client( 2272): blockingConnect
+I/monado-ipc-client( 2272): bind
+I/monado-ipc-client( 2272): onServiceConnected
+I/MonadoImpl( 2418): connect: given fd 92
+I/MonadoImpl( 2418): canDrawOverOtherApps
+I/MonadoImpl( 2418): passAppSurface
+I/MonadoImpl( 2418): connect: fd ownership transferred
+I/monado-ipc-client( 2272): Socket fd 115
+I/XRProbe ( 2272): CREATE_INSTANCE cycle=2 result=0
+I/XRProbe ( 2272): GET_SYSTEM cycle=2 result=0
+I/MonadoImpl( 2418): shutdown
+I/XRProbe ( 2272): DESTROY_INSTANCE cycle=2 result=0
+I/monado-ipc-client( 2272): blockingConnect
+I/monado-ipc-client( 2272): bind
+I/monado-ipc-client( 2272): onServiceConnected
+I/MonadoImpl( 2418): connect: given fd 104
+I/MonadoImpl( 2418): canDrawOverOtherApps
+I/MonadoImpl( 2418): passAppSurface
+I/MonadoImpl( 2418): connect: fd ownership transferred
+I/monado-ipc-client( 2272): Socket fd 115
+I/XRProbe ( 2272): CREATE_INSTANCE cycle=3 result=0
+I/XRProbe ( 2272): GET_SYSTEM cycle=3 result=0
+I/MonadoImpl( 2418): shutdown
+I/XRProbe ( 2272): DESTROY_INSTANCE cycle=3 result=0
+I/XRProbe ( 2272): ALL_CYCLES_OK
+I/monado-ipc-client( 2272): blockingConnect
+I/monado-ipc-client( 2272): bind
+I/monado-ipc-client( 2272): onServiceConnected
+I/MonadoImpl( 2418): canDrawOverOtherApps
+I/MonadoImpl( 2418): connect: given fd 102
+I/MonadoImpl( 2418): passAppSurface
+I/MonadoImpl( 2418): connect: fd ownership transferred
+I/monado-ipc-client( 2272): Socket fd 115
+I/XRProbe ( 2272): INPUT_SESSION_STATE 1
+I/XRProbe ( 2272): INPUT_SESSION_STATE 2
+I/XRProbe ( 2272): INPUT_SESSION_STATE 3
+I/XRProbe ( 2272): INPUT_SESSION_STATE 4
+I/XRProbe ( 2272): INPUT_SESSION_STATE 5
+I/XRProbe ( 2272): INPUT_GYRO_BASELINE
+I/XRProbe ( 2272): INPUT_PRESS_OK 1.000
+I/XRProbe ( 2272): INPUT_POSE_OK -0.345 0.068 -0.440
+I/XRProbe ( 2272): INPUT_RELEASE_OK 0.000
+I/XRProbe ( 2272): INPUT_HEAD_MOTION_OK dot=0.994451
+I/XRProbe ( 2272): INPUT_SUMMARY press=1 release=1 handPose=1 headMotion=1 focused=1
+I/XRProbe ( 2272): INPUTS_OK
+I/MonadoImpl( 2418): shutdown
+I/XRProbe ( 2272): Broker: com.xrpocket.mobile / libopenxr_monado.so
+I/XRProbe ( 2272): OpenXR: 3 instances created and destroyed successfully
+I/XRProbe ( 2272): Inputs: synthetic inputs and virtual head motion OK

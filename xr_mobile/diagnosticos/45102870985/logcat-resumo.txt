@@ -1,0 +1,68 @@
+W/XrPocketHandsCa( 4308): type=1400 audit(0.0:65): avc:  denied  { getattr } for  path="/dev/pmsg0" dev="tmpfs" ino=757 scontext=u:r:untrusted_app:s0:c211,c256,c512,c768 tcontext=u:object_r:pmsg_device:s0 tclass=chr_file permissive=0 app=com.xrpocket.mobile
+W/XrPocketHandsCa( 4308): type=1400 audit(0.0:66): avc:  denied  { getattr } for  path="/dev/pmsg0" dev="tmpfs" ino=757 scontext=u:r:untrusted_app:s0:c211,c256,c512,c768 tcontext=u:object_r:pmsg_device:s0 tclass=chr_file permissive=0 app=com.xrpocket.mobile
+W/XrPocketHandsCa( 4308): type=1400 audit(0.0:67): avc:  denied  { getattr } for  path="/dev/pmsg0" dev="tmpfs" ino=757 scontext=u:r:untrusted_app:s0:c211,c256,c512,c768 tcontext=u:object_r:pmsg_device:s0 tclass=chr_file permissive=0 app=com.xrpocket.mobile
+I/XrPocketHands( 4308): Modelo de mãos carregado
+I/XrPocketHands( 4308): Câmera de mãos iniciada
+I/XrPocketHands( 4308): Câmera de mãos parada
+I/XRProbe ( 5440): BROKER com.xrpocket.mobile / libopenxr_monado.so
+I/XRProbe ( 5440): LOADER_INIT 0
+I/monado-ipc-client( 5440): blockingConnect
+I/monado-ipc-client( 5440): bind
+I/monado-ipc-client( 5440): onServiceConnected
+I/MonadoImpl( 5472): connect: given fd 87
+I/MonadoImpl( 5472): canDrawOverOtherApps
+I/MonadoImpl( 5472): passAppSurface
+I/MonadoImpl( 5472): connect: fd ownership transferred
+I/monado-ipc-client( 5440): Socket fd 115
+I/XRProbe ( 5440): CREATE_INSTANCE cycle=1 result=0
+I/XRProbe ( 5440): GET_SYSTEM cycle=1 result=0
+I/MonadoImpl( 5472): shutdown
+I/XRProbe ( 5440): DESTROY_INSTANCE cycle=1 result=0
+I/monado-ipc-client( 5440): blockingConnect
+I/monado-ipc-client( 5440): bind
+I/monado-ipc-client( 5440): onServiceConnected
+I/MonadoImpl( 5472): canDrawOverOtherApps
+I/MonadoImpl( 5472): connect: given fd 92
+I/MonadoImpl( 5472): passAppSurface
+I/MonadoImpl( 5472): connect: fd ownership transferred
+I/monado-ipc-client( 5440): Socket fd 115
+I/XRProbe ( 5440): CREATE_INSTANCE cycle=2 result=0
+I/XRProbe ( 5440): GET_SYSTEM cycle=2 result=0
+I/MonadoImpl( 5472): shutdown
+I/XRProbe ( 5440): DESTROY_INSTANCE cycle=2 result=0
+I/monado-ipc-client( 5440): blockingConnect
+I/monado-ipc-client( 5440): bind
+I/monado-ipc-client( 5440): onServiceConnected
+I/MonadoImpl( 5472): connect: given fd 95
+I/MonadoImpl( 5472): canDrawOverOtherApps
+I/MonadoImpl( 5472): passAppSurface
+I/MonadoImpl( 5472): connect: fd ownership transferred
+I/monado-ipc-client( 5440): Socket fd 115
+I/XRProbe ( 5440): CREATE_INSTANCE cycle=3 result=0
+I/XRProbe ( 5440): GET_SYSTEM cycle=3 result=0
+I/MonadoImpl( 5472): shutdown
+I/XRProbe ( 5440): DESTROY_INSTANCE cycle=3 result=0
+I/XRProbe ( 5440): ALL_CYCLES_OK
+I/monado-ipc-client( 5440): blockingConnect
+I/monado-ipc-client( 5440): bind
+I/monado-ipc-client( 5440): onServiceConnected
+I/MonadoImpl( 5472): connect: given fd 102
+I/MonadoImpl( 5472): canDrawOverOtherApps
+I/MonadoImpl( 5472): passAppSurface
+I/MonadoImpl( 5472): connect: fd ownership transferred
+I/monado-ipc-client( 5440): Socket fd 115
+I/XRProbe ( 5440): INPUT_SESSION_STATE 1
+I/XRProbe ( 5440): INPUT_SESSION_STATE 2
+I/XRProbe ( 5440): INPUT_SESSION_STATE 3
+I/XRProbe ( 5440): INPUT_SESSION_STATE 4
+I/XRProbe ( 5440): INPUT_SESSION_STATE 5
+I/XRProbe ( 5440): INPUT_PRESS_OK 1.000
+I/XRProbe ( 5440): INPUT_POSE_OK -0.299 0.068 -0.472
+I/XRProbe ( 5440): INPUT_RELEASE_OK 0.000
+I/XRProbe ( 5440): INPUT_HEAD_MOTION_OK dot=0.999906
+I/XRProbe ( 5440): INPUT_SUMMARY press=1 release=1 handPose=1 headMotion=1 focused=1
+I/XRProbe ( 5440): INPUTS_OK
+I/MonadoImpl( 5472): shutdown
+I/XRProbe ( 5440): Broker: com.xrpocket.mobile / libopenxr_monado.so
+I/XRProbe ( 5440): OpenXR: 3 instances created and destroyed successfully
+I/XRProbe ( 5440): Inputs: synthetic inputs and virtual head motion OK
