@@ -63,28 +63,9 @@ PY
 done
 adb logcat -d -t 4000 -v brief > capture/logcat.txt || true
 
-# Prévia compacta para verificar se a tela realmente pertence ao port. Não há
-# dados pessoais: o emulador é novo e não faz login.
-python3 -m pip install --quiet --user --break-system-packages Pillow
-python3 - <<'PY'
-import base64
-from pathlib import Path
-from PIL import Image
-
-image = Image.open('capture/tela-30s.png').convert('RGB')
-image.thumbnail((800, 800))
-output = Path('capture/preview.jpg')
-for quality in (60, 50, 40, 30, 20):
-    image.save(output, 'JPEG', quality=quality, optimize=True)
-    if output.stat().st_size < 20000:
-        break
-encoded = base64.b64encode(output.read_bytes()).decode('ascii')
-# As mensagens de anotação do GitHub são truncadas em 4096 caracteres.
-if len(encoded) <= 30000:
-    for i in range(0, len(encoded), 3300):
-        print(f'::notice title=PREVIA_EMULADOR_{i // 3300:02d}::' + encoded[i:i + 3300])
-PY
-# Um resumo pequeno do diagnóstico fica visível nas anotações da execução.
+# As capturas completas ficam no artefato; um resumo aparece nas anotações.
 report_note=$(tr '\n' ' ' < "$REPORT" | cut -c1-1500)
 printf '::notice title=Diagnóstico do emulador::%s\n' "$report_note"
+focus_note=$(grep 'mCurrentFocus=' "$REPORT" | tr '\n' ' ' | cut -c1-1000 || true)
+printf '::notice title=Foco do Android::%s\n' "$focus_note"
 cat "$REPORT"

@@ -3,7 +3,9 @@ QUESTCRAFT MOBILE — EXPERIMENTAL
 Este APK é uma adaptação do QuestCraft oficial 6.0.0, não foi testado em
 um celular e pode não abrir. Ele NÃO inclui o runtime, o rastreamento de mãos
 ou o Minecraft: Java Edition. Leia as instruções completas e limitações no
-arquivo README-DETALHADO.md que acompanha este APK.
+arquivo README-DETALHADO.md que acompanha este APK. Aberto diretamente em
+um emulador Android, mostrou aviso de hardware e voltou à tela inicial depois
+de continuar; esse teste não demonstra funcionamento pelo PhoneXR ou no celular.
 
 1. Em um telefone Android 10+ ARM64 com câmera e sensores, instale o PhoneXR
    FULL 2.0.1 do projeto original (NÃO a versão BE, que não tem câmera):

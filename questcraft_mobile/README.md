@@ -3,8 +3,7 @@
 O arquivo do link informado se chama **QCXR-6.0.0.apk**. Ele corresponde ao
 nome do release oficial do QuestCraft 6.0.0, mas **não pudemos baixar o arquivo
 do GoFile neste ambiente e portanto não sabemos se os dois são idênticos**. Este
-projeto não modifica os jogos web do repositório: ele prepara separadamente um
-APK experimental do QuestCraft para experimentar no Android.
+projeto prepara um APK experimental do QuestCraft para experimentar no Android.
 
 O script usa por padrão o [release oficial 6.0.0](https://github.com/QuestCraftPlusPlus/QuestCraft/releases/tag/6.0.0)
 e verifica seu SHA-256 (`4d474dff57ba131a8719e073078c9212c739c18841716f37968dfee6732b783c`).
@@ -15,7 +14,10 @@ armazenado neste repositório.
 > A montagem foi testada com um APK sintético e também gerou um APK a partir
 > do release oficial, mas não houve teste em dispositivo real. O Unity, o
 > Vivecraft, extensões proprietárias de Quest ou o mapeamento das mãos podem
-> falhar. O patch não garante que o seu telefone execute o jogo.
+> falhar. No emulador Android, o APK instalou e, aberto diretamente, mostrou
+> um aviso de hardware e voltou à tela inicial depois de continuar. Isso não
+> testa o lançamento pelo PhoneXR nem substitui um teste em telefone; o patch
+> não garante que o seu aparelho execute o jogo.
 
 ## O que o patch faz
 
@@ -114,11 +116,3 @@ para debug, não para publicar. Não compartilhe a chave.
 O Android solicitará autorização para instalar aplicativos de fontes externas.
 Só conceda para os arquivos cuja origem você verificou. A câmera opera apenas
 com permissão; interrompa o rastreamento no PhoneXR quando terminar.
-
-## Alternativa já publicada
-
-O [HyperMagic 0.4.0](https://github.com/mt-VR/HyperXR/releases/tag/v0.4.0)
-é outro projeto que declara um launcher próprio baseado em Pojlib/QuestCraft,
-com perfil QuestCraft, runtime e mãos. **Não é este APK modificado** e não usa
-o mesmo fluxo de PhoneXR descrito acima; pode ser uma alternativa para testar
-no telefone enquanto esta adaptação ainda é experimental.
