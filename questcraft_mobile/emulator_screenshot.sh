@@ -84,6 +84,10 @@ report_note=$(tr '\n' ' ' < "$REPORT" | cut -c1-2500)
 printf '::notice title=Diagnóstico do emulador::%s\n' "$report_note"
 focus_note=$(grep 'mCurrentFocus=' "$REPORT" | tr '\n' ' ' | cut -c1-1500 || true)
 printf '::notice title=Foco do Android::%s\n' "$focus_note"
-log_note=$(grep -Ei 'QuestCraftHands|QuestCraftRuntime|FATAL EXCEPTION|Fatal signal|monado|openxr|UnsatisfiedLinkError|NoClassDefFoundError' capture/logcat.txt | tail -50 | tr '\n' ' ' | cut -c1-3500 || true)
-printf '::notice title=Logs relevantes::%s\n' "$log_note"
+hands_note=$(grep -E 'QuestCraftHands' capture/logcat.txt | tail -30 | tr '\n' ' ' | cut -c1-3500 || true)
+printf '::notice title=Rastreamento de mãos::%s\n' "$hands_note"
+runtime_note=$(grep -Ei 'QuestCraftRuntime|monado-ipc-client|MonadoImpl|MonadoView|openxr|Fatal signal' capture/logcat.txt | tail -35 | tr '\n' ' ' | cut -c1-3500 || true)
+printf '::notice title=Runtime OpenXR::%s\n' "$runtime_note"
+fatal_note=$(grep -A 18 'FATAL EXCEPTION' capture/logcat.txt | tail -40 | tr '\n' ' ' | cut -c1-3500 || true)
+printf '::notice title=Exceções fatais::%s\n' "$fatal_note"
 cat "$REPORT"
