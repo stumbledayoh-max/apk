@@ -4,7 +4,11 @@ on:
   workflow_dispatch:
   push:
     paths:
-      - 'xr_mobile/**'
+      - 'xr_mobile/android/**'
+      - 'xr_mobile/embedded/**'
+      - 'xr_mobile/build_runtime.py'
+      - 'xr_mobile/build_payload.py'
+      - 'xr_mobile/tests/**'
       - 'questcraft_mobile/integrated.py'
       - 'questcraft_mobile/build_apk.py'
       - '.github/workflows/xr-mobile.yml'
@@ -30,21 +34,23 @@ jobs:
           python3 -m unittest discover -s questcraft_mobile/tests -v
           python3 -m unittest discover -s xr_mobile/tests -v
       - name: Baixar modelo e runtime fixados e verificar hashes
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           mkdir -p "$RUNNER_TEMP/xr-model"
-          curl --fail --location --retry 3 -o "$RUNNER_TEMP/xr-model/hand_landmarker.task" \
+          curl --fail --location --retry 5 --retry-all-errors -o "$RUNNER_TEMP/xr-model/hand_landmarker.task" \
             'https://raw.githubusercontent.com/samrat1games/phonexr/f393ea8c3f4579995efb7402d61a2108121b0900/orangehanding/src/main/assets/hand_landmarker.task'
           echo 'fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1  '"$RUNNER_TEMP/xr-model/hand_landmarker.task" | sha256sum -c -
-          curl --fail --location --retry 3 -H 'Accept: application/vnd.github.raw+json' \
-            -o "$RUNNER_TEMP/phonexr-runtime.apk" \
+          curl --fail --location --retry 5 --retry-all-errors -H 'Accept: application/vnd.github.raw+json' \
+            -H "Authorization: Bearer $GH_TOKEN" -o "$RUNNER_TEMP/phonexr-runtime.apk" \
             'https://api.github.com/repos/samrat1games/phonexr/contents/app/src/main/assets/runtime/phonexr-runtime.apk?ref=f393ea8c3f4579995efb7402d61a2108121b0900'
           echo '56dd0f53317e1e70d240d4de39217f7553011a04b1d4cf22a637de6d1ebf7fa8  '"$RUNNER_TEMP/phonexr-runtime.apk" | sha256sum -c -
-          curl --fail --location --retry 3 -o "$RUNNER_TEMP/ARSCLib.jar" \
+          curl --fail --location --retry 5 --retry-all-errors -o "$RUNNER_TEMP/ARSCLib.jar" \
             'https://github.com/REAndroid/ARSCLib/releases/download/V1.4.0/ARSCLib-1.4.0.jar'
           echo '0cc95b160ba4c731a5cadb455f32b79f4e64b4160bc5ec3e5183ea3676b385ce  '"$RUNNER_TEMP/ARSCLib.jar" | sha256sum -c -
-          curl --fail --location --retry 3 -o "$RUNNER_TEMP/apktool.jar" \
+          curl --fail --location --retry 5 --retry-all-errors -o "$RUNNER_TEMP/apktool.jar" \
             'https://github.com/iBotPeaches/Apktool/releases/download/v2.11.1/apktool_2.11.1.jar'
       - name: Preparar suporte integrado para o APK do jogo
         env:

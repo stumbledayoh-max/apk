@@ -317,11 +317,24 @@ final class ApkCreator {
     private static void addIcon(ApkModule module, AndroidManifestBlock manifest, String packageName, File icon) throws IOException {
         if (!icon.isFile() || icon.length() <= 0 || icon.length() > MAX_ICON) throw new IOException("Imagem do ícone inválida");
         TableBlock table = module.getTableBlock(false);
-        if (table == null) throw new IOException("Este APK não possui tabela de recursos para adicionar um ícone");
-        Iterator<PackageBlock> packages = table.getPackages(packageName);
-        if (!packages.hasNext()) throw new IOException("Tabela de recursos não corresponde ao pacote do jogo");
-        PackageBlock pack = packages.next();
-        if (packages.hasNext()) throw new IOException("Tabela de recursos ambígua");
+        if (table == null) {
+            table = TableBlock.createEmpty();
+            module.setTableBlock(table);
+        }
+        // Minimal APKs can have an empty table. Resource package names may also
+        // differ from applicationId when an app was built with a namespace.
+        PackageBlock pack = null;
+        for (Iterator<PackageBlock> packages = table.iterator(); packages.hasNext();) {
+            PackageBlock candidate = packages.next();
+            if (packageName.equals(candidate.getName())) {
+                if (pack != null) throw new IOException("Tabela de recursos ambígua");
+                pack = candidate;
+            }
+        }
+        if (pack == null && table.size() == 0) pack = table.newPackage(0x7f, packageName);
+        if (pack == null && table.size() == 1) pack = table.getPackageBlockById(0x7f);
+        if (pack == null) throw new IOException("Tabela de recursos não corresponde ao pacote do jogo");
+        if (pack.getName() == null || pack.getName().isEmpty()) pack.setName(packageName);
         String resourceName = "bigxr_custom_icon", path = "res/drawable-nodpi/bigxr_custom_icon.png";
         if (pack.getEntry("drawable", resourceName) != null || module.containsFile(path)) throw new IOException("Recurso de ícone BigXR já existe no jogo");
         Entry entry = pack.getOrCreate("-nodpi", "drawable", resourceName);
