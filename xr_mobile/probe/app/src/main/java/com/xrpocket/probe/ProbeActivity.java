@@ -11,6 +11,7 @@ import android.widget.TextView;
 /** Disposable test APK: checks the broker and attempts to create an OpenXR instance. */
 public final class ProbeActivity extends Activity {
     private static native String probe(Activity activity);
+    private static native String probeInput(Activity activity);
     private TextView status;
 
     @Override public void onCreate(Bundle state) {
@@ -28,8 +29,11 @@ public final class ProbeActivity extends Activity {
         Log.i("XRProbe", "BROKER " + resolved);
         new Thread(() -> {
             String result;
-            try { System.loadLibrary("xrprobe"); result = probe(this); }
-            catch (Throwable error) { result = "JNI error: " + error; }
+            try {
+                System.loadLibrary("xrprobe");
+                result = probe(this);
+                if (result.startsWith("3 instances")) result += "\nInputs: " + probeInput(this);
+            } catch (Throwable error) { result = "JNI error: " + error; }
             final String message = "Broker: " + resolved + "\nOpenXR: " + result;
             Log.i("XRProbe", message);
             runOnUiThread(() -> status.setText(message));

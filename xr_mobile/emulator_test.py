@@ -178,10 +178,17 @@ def main():
     copied = adb('shell', 'cat', '/sdcard/Android/obb/com.xrpocket.probe/' + obb.name, check=False)
     if copied.strip() != 'XR Pocket test fixture OBB': raise RuntimeError('OBB não foi copiado ou Android bloqueou a pasta: ' + copied[:300])
     note('Cópia OBB: OK')
+    # Stop the real camera sender so the fixture's synthetic PH5 packets are
+    # not mixed with empty camera results during the OpenXR input test.
+    if not find_button('Parar câmera', start='stop-hands'): raise RuntimeError('Botão de parar câmera não encontrado.')
+    time.sleep(5)
+    stopped_labels = labels(dump('hands-stopped'))
+    note('Após parar câmera: ' + stopped_labels)
+    if 'Câmera parada' not in stopped_labels: raise RuntimeError('Câmera não confirmou parada.')
     if not find_button('Abrir jogo instalado', start='play-button'): raise RuntimeError('Botão de abrir não encontrado.')
     time.sleep(4); nodes = dump('open-dialog')
-    tap(nodes, 'Abrir')
-    time.sleep(45); screenshot('probe.png')
+    if not tap(nodes, 'Abrir'): raise RuntimeError('Confirmação de abrir sem câmera não encontrada: ' + labels(nodes))
+    time.sleep(65); screenshot('probe.png')
     note('Tela da fixture: ' + labels(dump('probe')))
     log = adb('logcat', '-d', '-v', 'brief', timeout=50)
     xr = [line for line in log.splitlines() if 'XRProbe' in line or 'XrPocketHands' in line or 'monado-ipc-client' in line or 'MonadoImpl' in line]
@@ -193,6 +200,9 @@ def main():
             marker = f'{operation} cycle={cycle} result=0'
             if not any(marker in line for line in xr): raise RuntimeError('OpenXR não concluiu: ' + marker)
     if not any('ALL_CYCLES_OK' in line for line in xr): raise RuntimeError('OpenXR não concluiu todos os ciclos.')
+    if not any('INPUTS_OK' in line for line in xr):
+        detail = ' | '.join(line for line in xr if 'INPUT_' in line)[-1000:]
+        raise RuntimeError('Teste OpenXR sem renderização não confirmou entradas sintéticas e movimento: ' + detail)
     if not adb('shell', 'pidof', 'com.xrpocket.probe', check=False).strip():
         raise RuntimeError('Processo de teste morreu após encerrar o OpenXR.')
     if any(('Fatal signal' in line and '(.xrpocket.probe)' in line)
@@ -202,6 +212,7 @@ def main():
     if not all(any(marker in line for line in xr) for marker in ('Modelo de mãos carregado', 'Câmera de mãos iniciada')):
         raise RuntimeError('Câmera ou modelo de mãos não iniciaram.')
     note('OpenXR: 3 instâncias criadas, consultadas e encerradas sem crash observado; renderização não testada.')
+    note('Teste headless: comandos de mão sintéticos e movimento do sensor virtual chegaram ao OpenXR.')
     note('Câmera e modelo iniciaram; sem validação de gestos reais no emulador.')
 
 
