@@ -72,6 +72,20 @@ class BinaryTests(unittest.TestCase):
         with self.assertRaises(i.IntegrationError): i.replace_cstring(data, b"old.long.string", b"x" * 100)
         with self.assertRaises(i.IntegrationError): i.replace_cstring(data + b"old.long.string\0", b"old.long.string", b"x")
 
+    def test_egl_guard_is_narrow_and_checks_the_expected_return(self):
+        gap = i.EGL_PROBE_EPILOGUE_OFFSET - len(i.EGL_PROBE_SIGNATURE)
+        data = b"prefix" + i.EGL_PROBE_SIGNATURE + b"\0" * gap + i.EGL_PROBE_EPILOGUE + b"suffix"
+        result = i.guard_optional_egl_probe(data)
+        at = len(b"prefix") + i.EGL_PROBE_PATCH_OFFSET
+        self.assertEqual(len(result), len(data))
+        self.assertEqual(result[at:at + len(i.EGL_PROBE_GUARD)], i.EGL_PROBE_GUARD)
+        self.assertEqual(result[:at], data[:at])
+        self.assertEqual(result[at + len(i.EGL_PROBE_GUARD):], data[at + len(i.EGL_PROBE_GUARD):])
+        with self.assertRaises(i.IntegrationError): i.guard_optional_egl_probe(b"unknown")
+        with self.assertRaises(i.IntegrationError): i.guard_optional_egl_probe(data + i.EGL_PROBE_SIGNATURE)
+        corrupt = data.replace(i.EGL_PROBE_EPILOGUE, b"\0" * len(i.EGL_PROBE_EPILOGUE))
+        with self.assertRaises(i.IntegrationError): i.guard_optional_egl_probe(corrupt)
+
     def test_dex_class_parsing_and_truncation(self):
         descriptor = b"Lcom/example/Test;"
         header = bytearray(112)

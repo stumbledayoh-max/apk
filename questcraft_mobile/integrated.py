@@ -27,6 +27,19 @@ OLD_RUNTIME = b"org.freedesktop.monado.openxr_runtime.out_of_process"
 OLD_BROKERS = (b"org.khronos.openxr.runtime_broker", b"org.khronos.openxr.system_runtime_broker")
 MODEL_SHA256 = "fbc2a30080c3c557093b5ddfc334698132eb341044ccee322ccf8bcf3607cde1"
 RUNTIME_SHA256 = "56dd0f53317e1e70d240d4de39217f7553011a04b1d4cf22a637de6d1ebf7fa8"
+# Exact arm64 code in the pinned runtime. It calls the optional Android EGL
+# implementation-string extension without checking eglGetProcAddress's result.
+# Some devices/emulators return null; skipping the optional native-fence probe
+# avoids an unconditional jump to address zero. Offsets and bytes are verified.
+EGL_PROBE_SIGNATURE = bytes.fromhex(
+    "e80b40f920f4fff00020349100013fd6e00700f9e80740f9"
+    "a0835ff8a10a865200013fd6e00300f9"
+)
+EGL_PROBE_EPILOGUE = bytes.fromhex("fd7b42a9ffc30091c0035fd6")
+EGL_PROBE_EPILOGUE_OFFSET = 0x74
+EGL_PROBE_PATCH_OFFSET = 0x10
+# cbz x0, <epilogue> ; mov x8, x0
+EGL_PROBE_GUARD = bytes.fromhex("200300b4e80300aa")
 REQUIRED_PERMISSIONS = (
     "android.permission.CAMERA", "android.permission.INTERNET",
     "android.permission.FOREGROUND_SERVICE", "android.permission.FOREGROUND_SERVICE_CAMERA",
@@ -167,6 +180,26 @@ def patch_loader(path: Path) -> None:
     path.write_bytes(data)
 
 
+def guard_optional_egl_probe(data: bytes) -> bytes:
+    """Guard the optional EGL lookup in the exact pinned arm64 Monado binary.
+
+    The extension is used only to detect native fence support. If the lookup is
+    unavailable, the safe fallback is to leave that optional feature disabled.
+    This is a narrowly verified machine-code patch, not a general ELF rewriter.
+    """
+    if data.count(EGL_PROBE_SIGNATURE) != 1:
+        raise IntegrationError("Código do teste EGL não corresponde ao runtime fixado.")
+    start = data.index(EGL_PROBE_SIGNATURE)
+    epilogue = start + EGL_PROBE_EPILOGUE_OFFSET
+    if data[epilogue:epilogue + len(EGL_PROBE_EPILOGUE)] != EGL_PROBE_EPILOGUE:
+        raise IntegrationError("Retorno do teste EGL não corresponde ao runtime fixado.")
+    at = start + EGL_PROBE_PATCH_OFFSET
+    result = data[:at] + EGL_PROBE_GUARD + data[at + len(EGL_PROBE_GUARD):]
+    if len(result) != len(data):
+        raise IntegrationError("O tamanho da biblioteca EGL foi alterado.")
+    return result
+
+
 def install_runtime_libs(decoded: Path, runtime_apk: Path) -> None:
     out = decoded / "lib" / "arm64-v8a"
     out.mkdir(parents=True, exist_ok=True)
@@ -179,6 +212,8 @@ def install_runtime_libs(decoded: Path, runtime_apk: Path) -> None:
             if data[:4] != b"\x7fELF" or len(data) < 64 or struct.unpack_from("<H", data, 18)[0] != 183:
                 raise IntegrationError(f"Biblioteca de runtime não é ELF arm64: {name}")
             data = replace_cstring(data, OLD_RUNTIME, PACKAGE.encode("ascii"))
+            if name == "libopenxr_monado.so":
+                data = guard_optional_egl_probe(data)
             destination = out / name
             if destination.exists():
                 raise IntegrationError(f"Conflito de biblioteca do QuestCraft: {name}")

@@ -364,7 +364,8 @@ def build(args: argparse.Namespace) -> Path:
         helper_report = integrated.install_helper(decoded, support, runtime_classes)
         integrated.prepare_apktool_yml(decoded / "apktool.yml")
         changes += ["Loader OpenXR ajustado para broker privado dentro do APK",
-                    "Runtime Monado, sensores e ponte de câmera integrados no mesmo APK"]
+                    "Runtime Monado, sensores e ponte de câmera integrados no mesmo APK",
+                    "Guarda para extensão EGL opcional ausente no runtime Monado fixado"]
 
         unsigned, aligned, signed = work / "unsigned.apk", work / "aligned.apk", work / "signed.apk"
         # Apktool 2.9+ uses aapt2 by default; --use-aapt2 is no longer a valid flag.
