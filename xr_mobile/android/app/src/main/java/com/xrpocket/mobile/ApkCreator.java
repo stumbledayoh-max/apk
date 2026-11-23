@@ -10,12 +10,10 @@ import com.reandroid.archive.FileInputSource;
 import com.reandroid.archive.InputSource;
 import com.reandroid.archive.writer.ApkFileWriter;
 import com.reandroid.archive.writer.ZipAligner;
-import com.reandroid.arsc.chunk.PackageBlock;
 import com.reandroid.arsc.chunk.TableBlock;
 import com.reandroid.arsc.chunk.xml.AndroidManifestBlock;
 import com.reandroid.arsc.chunk.xml.ResXmlAttribute;
 import com.reandroid.arsc.chunk.xml.ResXmlElement;
-import com.reandroid.arsc.value.Entry;
 import com.reandroid.arsc.value.ValueType;
 
 import org.json.JSONArray;
@@ -321,29 +319,12 @@ final class ApkCreator {
             table = TableBlock.createEmpty();
             module.setTableBlock(table);
         }
-        // Minimal APKs can have an empty table. Resource package names may also
-        // differ from applicationId when an app was built with a namespace.
-        PackageBlock pack = null;
-        for (Iterator<PackageBlock> packages = table.iterator(); packages.hasNext();) {
-            PackageBlock candidate = packages.next();
-            if (packageName.equals(candidate.getName())) {
-                if (pack != null) throw new IOException("Tabela de recursos ambígua");
-                pack = candidate;
-            }
-        }
-        if (pack == null && table.size() == 0) pack = table.newPackage(0x7f, packageName);
-        if (pack == null && table.size() == 1) pack = table.getPackageBlockById(0x7f);
-        if (pack == null) throw new IOException("Tabela de recursos não corresponde ao pacote do jogo");
-        if (pack.getName() == null || pack.getName().isEmpty()) pack.setName(packageName);
-        String resourceName = "bigxr_custom_icon", path = "res/drawable-nodpi/bigxr_custom_icon.png";
-        if (pack.getEntry("drawable", resourceName) != null || module.containsFile(path)) throw new IOException("Recurso de ícone BigXR já existe no jogo");
-        Entry entry = pack.getOrCreate("-nodpi", "drawable", resourceName);
-        entry.setValueAsString(path);
-        int id = entry.getResourceId();
+        if (module.containsFile(IconResourceTable.PATH)) throw new IOException("Recurso de ícone BigXR já existe no jogo");
+        int id = IconResourceTable.add(table, packageName);
         manifest.setIconResourceId(id);
         manifest.getApplicationElement().getOrCreateAndroidAttribute("roundIcon", android.R.attr.roundIcon)
                 .setTypeAndData(ValueType.REFERENCE, id);
-        addBytes(module, path, readBounded(new FileInputStream(icon), MAX_ICON), false, false);
+        addBytes(module, IconResourceTable.PATH, readBounded(new FileInputStream(icon), MAX_ICON), false, false);
     }
 
     private static void removeSignaturesAndOtherAbis(ApkModule module, ZipFile zip) {
