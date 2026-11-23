@@ -96,6 +96,19 @@ def main():
     probe = Path('xr_mobile/probe/app/build/outputs/apk/debug/app-debug.apk')
     note('Teste automatizado em emulador descartável; não é teste físico nem gameplay.')
     note('ABI: ' + adb('shell', 'getprop', 'ro.product.cpu.abilist').strip())
+    # Run the actual MediaPipe model and HandsMath on a reference photo in the
+    # debug test target. It does not validate a live camera or physical gestures.
+    debug_host = Path('xr_mobile/android/app/build/outputs/apk/debug/app-debug.apk')
+    hand_test = Path('xr_mobile/android/app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk')
+    adb('install', '-r', str(debug_host))
+    adb('install', '-r', str(hand_test))
+    result = adb('shell', 'am', 'instrument', '-w', '-r',
+                 'com.xrpocket.mobile.test/androidx.test.runner.AndroidJUnitRunner', timeout=180, check=False)
+    (OUT / 'teste-maos.txt').write_text(result, encoding='utf-8')
+    note('Modelo em foto de referência: ' + result[-600:].replace('\n', ' | '))
+    if not re.search(r'OK \(1 test\)', result): raise RuntimeError('Teste de detecção em foto de referência falhou.')
+    adb('uninstall', 'com.xrpocket.mobile.test', check=False)
+    adb('uninstall', 'com.xrpocket.mobile')
     note('Instalação do launcher: ' + adb('install', '-r', str(host)).strip())
     adb('shell', 'pm', 'grant', 'com.xrpocket.mobile', 'android.permission.CAMERA', check=False)
     adb('shell', 'pm', 'grant', 'com.xrpocket.mobile', 'android.permission.POST_NOTIFICATIONS', check=False)

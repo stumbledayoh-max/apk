@@ -1,0 +1,8 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <!-- The debug APK exists only for camera-model instrumentation tests.
+         The release APK gets the real broker when the runtime is embedded. -->
+    <application>
+        <provider android:name="org.freedesktop.monado.phonexr.RuntimeBroker" tools:node="remove" />
+    </application>
+</manifest>
