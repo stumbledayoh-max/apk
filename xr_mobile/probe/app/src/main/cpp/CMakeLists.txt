@@ -1,0 +1,7 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(xrprobe C)
+add_library(xrprobe SHARED probe.c)
+target_include_directories(xrprobe PRIVATE "$ENV{XR_HEADER_DIR}")
+add_library(openxr_loader SHARED IMPORTED)
+set_target_properties(openxr_loader PROPERTIES IMPORTED_LOCATION "$ENV{XR_LOADER_DIR}/arm64-v8a/libopenxr_loader.so")
+target_link_libraries(xrprobe openxr_loader log)
