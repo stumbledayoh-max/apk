@@ -121,7 +121,10 @@ def main():
     note('Tela de mãos: ' + labels(dump('hands-active')))
     adb('emu', 'sensor', 'set', 'gyroscope', '0.4:0.2:0.1', check=False)
     time.sleep(3)
-    note('Após alterar sensor virtual: ' + labels(dump('gyro')))
+    gyro_labels = labels(dump('gyro'))
+    note('Após alterar sensor virtual: ' + gyro_labels)
+    if '0.40 / 0.20 / 0.10' not in gyro_labels:
+        raise RuntimeError('Launcher não refletiu o giroscópio virtual.')
     # Test the real document picker and Package Installer with a harmless fixture.
     adb('push', str(probe), '/sdcard/Download/XR-Probe.apk')
     obb = temp / 'main.1.com.xrpocket.probe.obb'; obb.write_bytes(b'XR Pocket test fixture OBB\n')
@@ -156,17 +159,28 @@ def main():
     if not find_button('Abrir jogo instalado', start='play-button'): raise RuntimeError('Botão de abrir não encontrado.')
     time.sleep(4); nodes = dump('open-dialog')
     tap(nodes, 'Abrir')
-    time.sleep(35); screenshot('probe.png')
+    time.sleep(45); screenshot('probe.png')
     note('Tela da fixture: ' + labels(dump('probe')))
     log = adb('logcat', '-d', '-v', 'brief', timeout=50)
     xr = [line for line in log.splitlines() if 'XRProbe' in line or 'XrPocketHands' in line or 'monado-ipc-client' in line or 'MonadoImpl' in line]
     (OUT / 'logcat-resumo.txt').write_text('\n'.join(xr) + '\n', encoding='utf-8')
-    note('Runtime e mãos: ' + ' '.join(xr[-25:])[:4000])
+    note('Runtime e mãos: ' + ' '.join(xr[-40:])[:4000])
     if not any('BROKER com.xrpocket.mobile' in line for line in xr): raise RuntimeError('Fixture não consultou o broker.')
-    if any('CREATE_INSTANCE 0' in line for line in xr): note('OpenXR: criação de instância OK (não é prova de renderização).')
-    else: note('OpenXR: criação de instância não foi comprovada; ver logcat-resumo.txt.')
-    if not any('Câmera de mãos iniciada' in line for line in xr): note('Câmera/modelo: inicialização não comprovada; ver logs.')
-    else: note('Câmera e modelo iniciaram; sem validação de gestos reais no emulador.')
+    for cycle in range(1, 4):
+        for operation in ('CREATE_INSTANCE', 'GET_SYSTEM', 'DESTROY_INSTANCE'):
+            marker = f'{operation} cycle={cycle} result=0'
+            if not any(marker in line for line in xr): raise RuntimeError('OpenXR não concluiu: ' + marker)
+    if not any('ALL_CYCLES_OK' in line for line in xr): raise RuntimeError('OpenXR não concluiu todos os ciclos.')
+    if not adb('shell', 'pidof', 'com.xrpocket.probe', check=False).strip():
+        raise RuntimeError('Processo de teste morreu após encerrar o OpenXR.')
+    if any(('Fatal signal' in line and '(.xrpocket.probe)' in line)
+           or ('F/DEBUG' in line and 'Cmdline: com.xrpocket.probe' in line)
+           for line in log.splitlines()):
+        raise RuntimeError('O cliente de teste sofreu falha nativa.')
+    if not all(any(marker in line for line in xr) for marker in ('Modelo de mãos carregado', 'Câmera de mãos iniciada')):
+        raise RuntimeError('Câmera ou modelo de mãos não iniciaram.')
+    note('OpenXR: 3 instâncias criadas, consultadas e encerradas sem crash observado; renderização não testada.')
+    note('Câmera e modelo iniciaram; sem validação de gestos reais no emulador.')
 
 
 if __name__ == '__main__':

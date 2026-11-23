@@ -10,9 +10,14 @@ from xr_mobile import build_runtime as x
 
 
 def fake_library(guard=False):
-    header = bytearray(64)
+    header = bytearray(160)
     header[:6] = b"\x7fELF\x02\x01"
     struct.pack_into("<H", header, 18, 183)
+    struct.pack_into("<Q", header, 32, 64)  # program-header offset
+    struct.pack_into("<HH", header, 54, 56, 1)
+    struct.pack_into("<IIQQQQQQ", header, 64, 2, 6, 128, 0, 0, 32, 32, 8)
+    struct.pack_into("<QQ", header, 128, x.DT_FLAGS_1, x.DF_1_NOW)
+    # Last dynamic entry is DT_NULL (all zeroes).
     data = bytes(header) + i.OLD_RUNTIME + b"\0"
     if guard:
         gap = i.EGL_PROBE_EPILOGUE_OFFSET - len(i.EGL_PROBE_SIGNATURE)
@@ -35,8 +40,25 @@ class NativeRuntimeTests(unittest.TestCase):
             self.assertIn(x.PACKAGE.encode() + b"\0", patched)
             self.assertNotIn(i.OLD_RUNTIME + b"\0", patched)
             self.assertIn(i.EGL_PROBE_GUARD, patched)
+            self.assertEqual(struct.unpack_from("<Q", patched, 136)[0], x.DF_1_NOW | x.DF_1_NODELETE)
             self.assertEqual(len((folder / "libmonado-service.so").read_bytes()), len(service))
             with self.assertRaises(i.IntegrationError): x.install_native(root / "decoded", runtime)
+
+    def test_nodelete_patch_fails_closed_on_unexpected_elf(self):
+        valid = fake_library(True)
+        result = x.keep_client_mapped(valid)
+        self.assertEqual(len(result), len(valid))
+        self.assertEqual(sum(a != b for a, b in zip(result, valid)), 1)
+        corruptions = []
+        for offset, value in ((32, 2**63), (64, 1), (128, 0x123456), (136, 0x400)):
+            data = bytearray(valid)
+            struct.pack_into("<Q", data, offset, value)
+            corruptions.append(bytes(data))
+        corruptions.extend((b"", valid[:150], result))
+        for data in corruptions:
+            with self.subTest(data=data[:150]):
+                with self.assertRaises(i.IntegrationError):
+                    x.keep_client_mapped(data)
 
     def test_rejects_wrong_abi_or_missing_library(self):
         with tempfile.TemporaryDirectory() as tmp:

@@ -22,6 +22,15 @@ from questcraft_mobile import build_apk as tools  # noqa: E402
 from questcraft_mobile import integrated  # noqa: E402
 
 PACKAGE = "com.xrpocket.mobile"
+# The pinned Monado client may still have an attached native thread when the
+# application's loader calls dlclose immediately after xrDestroyInstance.
+# Keep this DSO mapped until the *client process* exits; instances and the
+# service are still destroyed normally. This is an experimental workaround,
+# not a substitute for fixing/joining the upstream worker thread.
+DT_FLAGS_1 = 0x6FFFFFFB
+DF_1_NOW = 0x1
+DF_1_NODELETE = 0x8
+
 REQUIRED_APP_CLASSES = {
     "Lcom/xrpocket/mobile/MainActivity;",
     "Lcom/xrpocket/mobile/HandService;",
@@ -30,6 +39,47 @@ REQUIRED_APP_CLASSES = {
     "Lorg/freedesktop/monado/auxiliary/SystemUiController;",
     "Lcom/google/mediapipe/tasks/vision/handlandmarker/HandLandmarker;",
 }
+
+
+def keep_client_mapped(data: bytes) -> bytes:
+    """Set DF_1_NODELETE on the pinned 64-bit Android Monado client ELF.
+
+    Android's dynamic linker supports this flag. Delaying unmapping avoids an
+    observed crash when a client destroys an OpenXR instance. Validate the
+    program-header table and exact old flag so the patch fails closed if the
+    pinned upstream binary changes; do not rewrite or resize other segments.
+    """
+    error = integrated.IntegrationError
+    if len(data) < 64 or data[:6] != b"\x7fELF\x02\x01" or struct.unpack_from("<H", data, 18)[0] != 183:
+        raise error("Cliente Monado não é ELF arm64 little-endian")
+    phoff = struct.unpack_from("<Q", data, 32)[0]
+    phentsize, phnum = struct.unpack_from("<HH", data, 54)
+    if phentsize != 56 or not 1 <= phnum <= 128 or phoff > len(data) or phnum * phentsize > len(data) - phoff:
+        raise error("Tabela ELF do cliente Monado inválida")
+    segments = []
+    for n in range(phnum):
+        kind, _, offset, _, _, size, _, _ = struct.unpack_from("<IIQQQQQQ", data, phoff + n * phentsize)
+        if kind == 2:  # PT_DYNAMIC
+            if size < 16 or size % 16 or offset > len(data) or size > len(data) - offset:
+                raise error("Segmento dinâmico ELF inválido")
+            segments.append((offset, size))
+    if len(segments) != 1:
+        raise error("Esperado um único segmento dinâmico no cliente Monado")
+    offset, size = segments[0]
+    flags = []
+    terminated = False
+    for at in range(offset, offset + size, 16):
+        tag, value = struct.unpack_from("<QQ", data, at)
+        if tag == 0:  # DT_NULL
+            terminated = True
+            break
+        if tag == DT_FLAGS_1:
+            flags.append((at, value))
+    if not terminated or len(flags) != 1 or flags[0][1] != DF_1_NOW:
+        raise error("Flags dinâmicas do cliente Monado não correspondem ao runtime fixado")
+    patched = bytearray(data)
+    struct.pack_into("<Q", patched, flags[0][0] + 8, DF_1_NOW | DF_1_NODELETE)
+    return bytes(patched)
 
 
 def install_native(decoded: Path, runtime: Path) -> None:
@@ -46,6 +96,7 @@ def install_native(decoded: Path, runtime: Path) -> None:
             data = integrated.replace_cstring(data, integrated.OLD_RUNTIME, PACKAGE.encode("ascii"))
             if name == "libopenxr_monado.so":
                 data = integrated.guard_optional_egl_probe(data)
+                data = keep_client_mapped(data)
             path = target / name
             if path.exists(): raise integrated.IntegrationError(f"Biblioteca em conflito: {name}")
             path.write_bytes(data)
@@ -129,6 +180,10 @@ def build(args: argparse.Namespace) -> None:
                 data = archive.read("lib/arm64-v8a/" + name)
                 if PACKAGE.encode("ascii") + b"\0" not in data or integrated.OLD_RUNTIME + b"\0" in data:
                     raise tools.BuildError("Biblioteca do runtime não aponta para o launcher")
+                if name == "libopenxr_monado.so":
+                    expected = struct.pack("<QQ", DT_FLAGS_1, DF_1_NOW | DF_1_NODELETE)
+                    if data.count(expected) != 1 or data.count(integrated.EGL_PROBE_GUARD) != 1:
+                        raise tools.BuildError("Guardas do cliente Monado ausentes no APK final")
         output.parent.mkdir(parents=True, exist_ok=True)
         shutil.copyfile(signed, output)
         digest = tools.sha256(output)
