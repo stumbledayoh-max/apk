@@ -2,11 +2,6 @@ name: Captura experimental do QuestCraft
 
 on:
   workflow_dispatch:
-    inputs:
-      transfer_url:
-        description: 'Endereço temporário do ambiente de teste (opcional)'
-        required: false
-        type: string
   push:
     paths:
       - '.github/workflows/questcraft-capture.yml'
@@ -39,30 +34,6 @@ jobs:
           unzip -Z1 "$APK" > "$RUNNER_TEMP/apk-entries.txt"
           grep -Fxq 'lib/arm64-v8a/libmonado-service.so' "$RUNNER_TEMP/apk-entries.txt"
           grep -Fxq 'assets/hand_landmarker.task' "$RUNNER_TEMP/apk-entries.txt"
-      - name: Transferência opcional ao ambiente de teste
-        if: github.event_name == 'workflow_dispatch'
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Read the dispatch payload without echoing the short-lived upload URL.
-          url=$(python3 -c 'import json,os,re,sys; u=json.load(open(os.environ["GITHUB_EVENT_PATH"])).get("inputs",{}).get("transfer_url", ""); sys.exit(2) if u and not re.fullmatch(r"https://[0-9]+-[a-z0-9]+\.e2b\.app/ingest/[a-f0-9]{64}",u) else print(u)')
-          if [ -n "$url" ]; then
-            echo "::add-mask::$url"
-            apk="$RUNNER_TEMP/questcraft-apk/QuestCraft-Mobile-debug.apk"
-            expected=$(sha256sum "$apk" | cut -d' ' -f1)
-            probe=$(curl --silent --output /dev/null --write-out '%{http_code}' "${url%/ingest/*}/")
-            echo "Diagnóstico do endereço de prévia: HTTP $probe"
-            status=$(curl --silent --show-error --retry 2 --max-time 180 \
-              --output "$RUNNER_TEMP/transfer-response.txt" --write-out '%{http_code}' \
-              -H "X-Expected-SHA256: $expected" --data-binary "@$apk" "$url")
-            if [ "$status" != 201 ]; then
-              detail=$(head -c 500 "$RUNNER_TEMP/transfer-response.txt" | tr '\n' ' ')
-              printf '::warning title=Transferência opcional::HTTP %s — %s\n' "$status" "$detail"
-              exit 1
-            fi
-            echo "SHA-256 do APK transferido: $expected"
-          fi
       - name: Ativar KVM
         run: |
           echo 'KERNEL=="kvm", GROUP="kvm", MODE="0666", OPTIONS+="static_node=kvm"' | sudo tee /etc/udev/rules.d/99-kvm4all.rules
@@ -81,21 +52,6 @@ jobs:
           disable-animations: true
           emulator-boot-timeout: 600
           script: bash questcraft_mobile/emulator_screenshot.sh
-      - name: Transferir diagnóstico ao ambiente de teste
-        if: ${{ always() && github.event_name == 'workflow_dispatch' }}
-        continue-on-error: true
-        shell: bash
-        run: |
-          set -euo pipefail
-          url=$(python3 -c 'import json,os,re,sys; u=json.load(open(os.environ["GITHUB_EVENT_PATH"])).get("inputs",{}).get("transfer_url", ""); sys.exit(2) if u and not re.fullmatch(r"https://[0-9]+-[a-z0-9]+\.e2b\.app/ingest/[a-f0-9]{64}",u) else print(u)')
-          if [ -n "$url" ] && [ -d capture ]; then
-            echo "::add-mask::$url"
-            zip -qr "$RUNNER_TEMP/capture-transfer.zip" capture
-            expected=$(sha256sum "$RUNNER_TEMP/capture-transfer.zip" | cut -d' ' -f1)
-            curl --fail --silent --show-error --retry 2 --max-time 180 \
-              -H 'X-Transfer-File: capture' -H "X-Expected-SHA256: $expected" \
-              --data-binary "@$RUNNER_TEMP/capture-transfer.zip" "$url"
-          fi
       - name: Guardar capturas e diagnóstico
         if: always()
         uses: actions/upload-artifact@v4
