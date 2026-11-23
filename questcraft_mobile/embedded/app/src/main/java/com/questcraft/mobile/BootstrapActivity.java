@@ -86,6 +86,7 @@ public final class BootstrapActivity extends Activity {
     private void openGame(boolean hands) {
         handsEnabled = hands;
         if (hands) startHands(this);
+        else stopService(new Intent(this, HandService.class));
         try {
             ActivityInfo info = getPackageManager().getActivityInfo(getComponentName(), PackageManager.GET_META_DATA);
             String target = info.metaData == null ? null : info.metaData.getString(TARGET);
