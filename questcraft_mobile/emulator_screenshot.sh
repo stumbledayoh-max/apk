@@ -24,7 +24,9 @@ fi
   adb shell monkey -p com.qcxr.qcxr -c android.intent.category.LAUNCHER 1 || true
 } >> "$REPORT" 2>&1
 
-for delay in 8 22 30; do
+# The snapshots are before each tap. Only identified permission/setup dialogs
+# on this disposable emulator are touched; a green job is not a gameplay claim.
+for delay in 8 12 15 20 25 30; do
   sleep "$delay"
   elapsed=$(( ${elapsed:-0} + delay ))
   {
@@ -33,11 +35,9 @@ for delay in 8 22 30; do
     adb shell dumpsys activity activities | grep -E 'mResumedActivity|topResumedActivity' | head -4 || true
   } >> "$REPORT" 2>&1
   adb exec-out screencap -p > "capture/tela-${elapsed}s.png" || true
-  if [ "$elapsed" -eq 8 ] || [ "$elapsed" -eq 30 ]; then
-    # Only press an explicitly identified button in our own setup or Unity's hardware warning.
-    timeout 15s adb shell uiautomator dump /sdcard/questcraft-window.xml >/dev/null 2>&1 || true
-    adb shell cat /sdcard/questcraft-window.xml > "capture/window-${elapsed}.xml" 2>/dev/null || true
-    python3 - "$elapsed" <<'PY' >> "$REPORT" 2>&1
+  timeout 15s adb shell uiautomator dump /sdcard/questcraft-window.xml >/dev/null 2>&1 || true
+  adb shell cat /sdcard/questcraft-window.xml > "capture/window-${elapsed}.xml" 2>/dev/null || true
+  python3 - "$elapsed" <<'PY' > "capture/ui-${elapsed}.txt" 2>&1
 import re
 import subprocess
 import sys
@@ -48,31 +48,42 @@ try:
     for node in nodes:
         text = node.get('text', '') or node.get('content-desc', '')
         if text:
-            print(text[:250], node.get('bounds', ''))
+            print(text[:300], node.get('bounds', ''))
     texts = {node.get('text', '').casefold() for node in nodes}
+    packages = {node.get('package', '') for node in nodes}
+    label = None
     # Android's default Button style can display text in uppercase.
-    label = 'permitir câmera e abrir' if 'permitir câmera e abrir' in texts else None
-    if any('does not match the hardware requirements' in text for text in texts):
+    if 'permitir câmera e abrir' in texts and 'com.qcxr.qcxr' in packages:
+        label = 'permitir câmera e abrir'
+    elif any('does not match the hardware requirements' in text for text in texts):
         label = 'continue'
+    elif any('permissioncontroller' in package for package in packages):
+        for candidate in ('while using the app', 'allow only while using the app',
+                          'allow', 'permitir', 'durante o uso do app'):
+            if candidate in texts:
+                label = candidate
+                break
     if label:
         for node in nodes:
             if node.get('text', '').casefold() == label:
                 bounds = re.fullmatch(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', node.get('bounds', ''))
                 if bounds:
                     x1, y1, x2, y2 = map(int, bounds.groups())
-                    subprocess.run(['adb', 'shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2)], timeout=10)
+                    subprocess.run(['adb', 'shell', 'input', 'tap', str((x1+x2)//2), str((y1+y2)//2)], timeout=10, check=True)
                     print('Selecionado:', label)
                     break
-except (ET.ParseError, OSError, subprocess.TimeoutExpired):
+except (ET.ParseError, OSError, subprocess.SubprocessError):
     print('Nenhum diálogo acessível via UIAutomator.')
 PY
-  fi
+  cat "capture/ui-${elapsed}.txt" >> "$REPORT"
+  ui_note=$(tr '\n' ' ' < "capture/ui-${elapsed}.txt" | cut -c1-3000)
+  printf '::notice title=Tela aos %ss::%s\n' "$elapsed" "$ui_note"
 done
-adb logcat -d -t 8000 -v brief > capture/logcat.txt || true
-report_note=$(tr '\n' ' ' < "$REPORT" | cut -c1-1500)
+adb logcat -d -v brief > capture/logcat.txt || true
+report_note=$(tr '\n' ' ' < "$REPORT" | cut -c1-2500)
 printf '::notice title=Diagnóstico do emulador::%s\n' "$report_note"
-focus_note=$(grep 'mCurrentFocus=' "$REPORT" | tr '\n' ' ' | cut -c1-1000 || true)
+focus_note=$(grep 'mCurrentFocus=' "$REPORT" | tr '\n' ' ' | cut -c1-1500 || true)
 printf '::notice title=Foco do Android::%s\n' "$focus_note"
-log_note=$(grep -E 'QuestCraftHands|QuestCraftRuntime|AndroidRuntime|FATAL EXCEPTION|openxr|OpenXR' capture/logcat.txt | tail -35 | tr '\n' ' ' | cut -c1-3500 || true)
+log_note=$(grep -Ei 'QuestCraftHands|QuestCraftRuntime|FATAL EXCEPTION|Fatal signal|monado|openxr|UnsatisfiedLinkError|NoClassDefFoundError' capture/logcat.txt | tail -50 | tr '\n' ' ' | cut -c1-3500 || true)
 printf '::notice title=Logs relevantes::%s\n' "$log_note"
 cat "$REPORT"
