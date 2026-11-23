@@ -230,6 +230,22 @@ final class ApkCreator {
         element.getOrCreateAndroidAttribute(name, id).setValueAsBoolean(value);
     }
 
+    /** Do not introduce a hardware requirement when BigXR adds an optional camera. */
+    static void markAddedCameraOptional(AndroidManifestBlock manifest) {
+        ResXmlElement root = manifest.getManifestElement();
+        boolean gameRequestedCamera = hasNamed(root, "uses-permission", "android.permission.CAMERA")
+                || hasNamed(root, "uses-permission-sdk-23", "android.permission.CAMERA")
+                || hasNamed(root, "uses-permission-sdk-m", "android.permission.CAMERA");
+        // Merely adding CAMERA would otherwise make Android infer that a rear
+        // camera is required, even though the BigXR bootstrap can open without it.
+        // Preserve any camera permission or feature already declared by the game.
+        if (!gameRequestedCamera && !hasNamed(root, "uses-feature", "android.hardware.camera")) {
+            ResXmlElement camera = root.newElement("uses-feature");
+            stringAttr(camera, "name", android.R.attr.name, "android.hardware.camera");
+            boolAttr(camera, "required", android.R.attr.required, false);
+        }
+    }
+
     private static String patchManifest(AndroidManifestBlock manifest, String label, String broker, boolean hasObb) throws IOException {
         ResXmlElement app = manifest.getApplicationElement();
         for (String tag : new String[]{"activity", "activity-alias", "service", "provider"}) {
@@ -271,6 +287,7 @@ final class ApkCreator {
         manifest.setExtractNativeLibs(true);
         Integer minSdk = manifest.getMinSdkVersion();
         if (minSdk == null || minSdk < 29) manifest.setMinSdkVersion(29);
+        markAddedCameraOptional(manifest);
         for (String permission : REQUIRED_PERMISSIONS) {
             ResXmlElement uses = manifest.addUsesPermission(permission);
             if (uses.searchAttributeByResourceId(android.R.attr.maxSdkVersion) != null)
