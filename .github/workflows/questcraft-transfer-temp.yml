@@ -6,6 +6,14 @@ on:
       - '.github/workflows/questcraft-transfer-temp.yml'
   workflow_dispatch:
     inputs:
+      build_kind:
+        description: 'Tipo do artefato'
+        required: true
+        type: choice
+        default: xr
+        options:
+          - xr
+          - questcraft
       build_run:
         description: 'ID da build integrada (0 para transferir só a captura)'
         required: true
@@ -37,12 +45,18 @@ jobs:
           set -euo pipefail
           build=$(python3 -c 'import json,os,re; x=json.load(open(os.environ["GITHUB_EVENT_PATH"]))["inputs"]["build_run"]; assert re.fullmatch(r"[0-9]+",x); print(x)')
           capture=$(python3 -c 'import json,os,re; x=json.load(open(os.environ["GITHUB_EVENT_PATH"]))["inputs"].get("capture_run", ""); assert not x or re.fullmatch(r"[0-9]+",x); print(x)')
+          kind=$(python3 -c 'import json,os; print(json.load(open(os.environ["GITHUB_EVENT_PATH"]))["inputs"].get("build_kind", "xr"))')
+          case "$kind" in
+            xr) artifact=XR-de-Bolso-experimental; capture_artifact=xr-teste-emulador ;;
+            questcraft) artifact=QuestCraft-Mobile-unico-experimental; capture_artifact=questcraft-captura-emulador ;;
+            *) exit 1 ;;
+          esac
           mkdir -p "$RUNNER_TEMP/transfer-apk" "$RUNNER_TEMP/transfer-capture"
           if [ "$build" != 0 ]; then
-            gh run download "$build" --repo "$GITHUB_REPOSITORY" --name QuestCraft-Mobile-unico-experimental --dir "$RUNNER_TEMP/transfer-apk"
+            gh run download "$build" --repo "$GITHUB_REPOSITORY" --name "$artifact" --dir "$RUNNER_TEMP/transfer-apk"
           fi
           if [ -n "$capture" ]; then
-            gh run download "$capture" --repo "$GITHUB_REPOSITORY" --name questcraft-captura-emulador --dir "$RUNNER_TEMP/transfer-capture"
+            gh run download "$capture" --repo "$GITHUB_REPOSITORY" --name "$capture_artifact" --dir "$RUNNER_TEMP/transfer-capture"
           fi
       - name: Transferir arquivos criptografados por objetos temporários
         shell: bash
@@ -56,7 +70,9 @@ jobs:
               raise SystemExit('Invalid ephemeral key')
           print('::add-mask::' + key, flush=True)
           temp = pathlib.Path(os.environ['RUNNER_TEMP'])
-          apk = temp / 'transfer-apk/QuestCraft-Mobile-debug.apk'
+          kind = event['inputs'].get('build_kind', 'xr')
+          apk_name = 'XR-de-Bolso-debug.apk' if kind == 'xr' else 'QuestCraft-Mobile-debug.apk'
+          apk = temp / 'transfer-apk' / apk_name
           capture_dir = temp / 'transfer-capture'
           sources = [('TEMP_APK_BLOBS', apk)] if apk.exists() else []
           if any(capture_dir.iterdir()):
