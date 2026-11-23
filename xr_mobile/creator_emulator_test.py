@@ -126,6 +126,8 @@ def inspect_apk(apk: Path) -> None:
     if "package: name='com.xrpocket.probe'" not in badging or 'BigXRProbe' not in badging:
         raise RuntimeError('Nome/pacote incorretos: ' + badging[:1200])
     if 'bigxr_custom_icon' not in badging: raise RuntimeError('Ícone personalizado não aparece no badging')
+    if "uses-feature-not-required: name='android.hardware.camera'" not in badging or "uses-implied-feature: name='android.hardware.camera'" in badging:
+        raise RuntimeError('Câmera opcional se tornou um requisito inesperado: ' + badging[:2200])
     if 'Verified using v2 scheme (APK Signature Scheme v2): true' not in signature and 'Verified using v3 scheme (APK Signature Scheme v3): true' not in signature:
         raise RuntimeError('APK gerado não está assinado com v2/v3')
     classes: set[str] = set()
