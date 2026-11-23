@@ -8,3 +8,8 @@
 -keep class org.freedesktop.monado.auxiliary.SystemUiController { *; }
 -keep class com.google.mediapipe.** { *; }
 -dontwarn org.freedesktop.monado.ipc.**
+# These optional profiler/template types are not packaged by MediaPipe's AAR
+# and are not used by the HandLandmarker path.
+-dontwarn com.google.auto.value.extension.memoized.Memoized
+-dontwarn com.google.mediapipe.proto.CalculatorProfileProto$CalculatorProfile
+-dontwarn com.google.mediapipe.proto.GraphTemplateProto$CalculatorGraphTemplate
