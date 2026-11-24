@@ -12,6 +12,7 @@ on:
       - '.github/workflows/bigxr-creator-test.yml'
       - 'xr_mobile/creator_emulator_test.py'
       - 'xr_mobile/emulator_test.py'
+      - 'xr_mobile/probe/**'
 
 permissions:
   contents: read

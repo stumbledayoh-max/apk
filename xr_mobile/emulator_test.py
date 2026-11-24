@@ -108,6 +108,7 @@ def verify_openxr(log):
         for operation in ('CREATE_INSTANCE', 'GET_SYSTEM', 'DESTROY_INSTANCE'):
             marker = f'{operation} cycle={cycle} result=0'
             if not any(marker in line for line in xr): raise RuntimeError('OpenXR não concluiu: ' + marker)
+    if not any('LOADER_CONTEXT_GLOBAL' in line for line in xr): raise RuntimeError('Contexto JNI global do loader não confirmado.')
     if not any('ALL_CYCLES_OK' in line for line in xr): raise RuntimeError('OpenXR não concluiu todos os ciclos.')
     if not any('INPUTS_OK' in line for line in xr):
         detail = ' | '.join(line for line in xr if 'INPUT_' in line)[-1000:]

@@ -1,4 +1,5 @@
 #include <jni.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <string.h>
 #include <unistd.h>
@@ -7,9 +8,17 @@
 #include <openxr/openxr.h>
 #include <openxr/openxr_platform.h>
 
+/* The loader saves the context handle, and may use it in later JNI calls.
+ * A local JNI reference expires when probe() returns. Keep one global
+ * application context for the process lifetime; unlike an Activity it does
+ * not retain a destroyed screen. Serialize initialization on recreation. */
+static jobject loader_context = NULL;
+static pthread_mutex_t loader_mutex = PTHREAD_MUTEX_INITIALIZER;
+
 /* Exercise destruction AND re-creation: an instance-only smoke test can pass
  * while a detached runtime thread crashes a moment after dlclose. */
-JNIEXPORT jstring JNICALL Java_com_xrpocket_probe_ProbeActivity_probe(JNIEnv *env, jclass cls, jobject activity) {
+JNIEXPORT jstring JNICALL Java_com_xrpocket_probe_ProbeActivity_probe(
+        JNIEnv *env, jclass cls, jobject activity, jobject application_context) {
     (void)cls;
     JavaVM *vm = NULL;
     if ((*env)->GetJavaVM(env, &vm) != JNI_OK) return (*env)->NewStringUTF(env, "GetJavaVM failed");
@@ -19,9 +28,18 @@ JNIEXPORT jstring JNICALL Java_com_xrpocket_probe_ProbeActivity_probe(JNIEnv *en
         char msg[100]; snprintf(msg, sizeof(msg), "loader lookup: %d", result);
         return (*env)->NewStringUTF(env, msg);
     }
+    if (application_context == NULL) return (*env)->NewStringUTF(env, "application context missing");
+    pthread_mutex_lock(&loader_mutex);
+    if (loader_context == NULL) loader_context = (*env)->NewGlobalRef(env, application_context);
+    if (loader_context == NULL) {
+        pthread_mutex_unlock(&loader_mutex);
+        return NULL; // JNI raised OutOfMemoryError.
+    }
     XrLoaderInitInfoAndroidKHR loader = {XR_TYPE_LOADER_INIT_INFO_ANDROID_KHR};
-    loader.applicationVM = vm; loader.applicationContext = activity;
+    loader.applicationVM = vm; loader.applicationContext = loader_context;
     result = init((const XrLoaderInitInfoBaseHeaderKHR *)&loader);
+    pthread_mutex_unlock(&loader_mutex);
+    __android_log_print(ANDROID_LOG_INFO, "XRProbe", "LOADER_CONTEXT_GLOBAL");
     __android_log_print(ANDROID_LOG_INFO, "XRProbe", "LOADER_INIT %d", result);
     if (XR_FAILED(result)) { char msg[100]; snprintf(msg, sizeof(msg), "loader init: %d", result); return (*env)->NewStringUTF(env, msg); }
 

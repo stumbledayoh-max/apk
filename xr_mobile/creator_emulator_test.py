@@ -235,8 +235,8 @@ def install_and_exercise():
     for cycle in range(1, 4):
         for operation in ('CREATE_INSTANCE', 'GET_SYSTEM', 'DESTROY_INSTANCE'):
             if f'{operation} cycle={cycle} result=0' not in log: raise RuntimeError('OpenXR autônomo falhou: ' + operation)
-    for marker in ('ALL_CYCLES_OK', 'OLFX_PH5_PACKETS_READY', 'INPUT_PRESS_OK', 'INPUT_RELEASE_OK',
-                   'INPUT_POSE_OK', 'INPUT_HEAD_MOTION_OK', 'INPUTS_OK'):
+    for marker in ('LOADER_CONTEXT_GLOBAL', 'ALL_CYCLES_OK', 'OLFX_PH5_PACKETS_READY',
+                   'INPUT_PRESS_OK', 'INPUT_RELEASE_OK', 'INPUT_POSE_OK', 'INPUT_HEAD_MOTION_OK', 'INPUTS_OK'):
         if marker not in log: raise RuntimeError('Rota OLFX/PH5 sintética ou sensor virtual não confirmado: ' + marker)
     if not ui.adb('shell', 'pidof', PACKAGE, check=False).strip(): raise RuntimeError('Processo da fixture morreu')
     if ('FATAL EXCEPTION' in log and PACKAGE in log) or ('Fatal signal' in log and 'xrpocket.probe' in log):

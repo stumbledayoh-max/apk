@@ -1,6 +1,7 @@
 package com.xrpocket.probe;
 
 import android.app.Activity;
+import android.content.Context;
 import android.database.Cursor;
 import android.graphics.Color;
 import android.net.Uri;
@@ -10,7 +11,7 @@ import android.widget.TextView;
 
 /** Disposable test APK: checks the broker and attempts to create an OpenXR instance. */
 public final class ProbeActivity extends Activity {
-    private static native String probe(Activity activity);
+    private static native String probe(Activity activity, Context applicationContext);
     private static native String probeInput(Activity activity, String pressPacket, String releasePacket);
     private TextView status;
 
@@ -89,7 +90,7 @@ public final class ProbeActivity extends Activity {
             String result;
             try {
                 System.loadLibrary("xrprobe");
-                result = probe(this);
+                result = probe(this, getApplicationContext());
                 if (result.startsWith("3 instances")) {
                     String[] packets = syntheticOlfxPackets();
                     result += "\nInputs: " + probeInput(this,
