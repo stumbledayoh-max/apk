@@ -1,0 +1,53 @@
+name: Transferência temporária para GoFile
+
+on:
+  workflow_dispatch:
+
+permissions:
+  actions: read
+  contents: read
+
+jobs:
+  upload:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - name: Recuperar e verificar o APK testado
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/gofile-upload"
+          gh run download 45291443990 --repo "$GITHUB_REPOSITORY" \
+            --name BigXR-experimental --dir "$RUNNER_TEMP/gofile-upload"
+          echo '2dbdc08dbc91b3bd8aef79310095668a0b1892ace54d9b629a72accc7e01c973  '"$RUNNER_TEMP/gofile-upload/BigXR-debug.apk" | sha256sum --check -
+      - name: Enviar ao GoFile e publicar somente o link
+        shell: bash
+        run: |
+          set -euo pipefail
+          umask 077
+          response="$RUNNER_TEMP/gofile-response.json"
+          trap 'rm -f "$response"' EXIT
+          curl --fail --silent --show-error --connect-timeout 30 --max-time 300 \
+            --form "file=@$RUNNER_TEMP/gofile-upload/BigXR-debug.apk;type=application/vnd.android.package-archive" \
+            --output "$response" https://upload.gofile.io/uploadfile
+          python3 - <<'PY'
+          import hashlib, json, os, pathlib, re
+          temp = pathlib.Path(os.environ['RUNNER_TEMP'])
+          response = json.loads((temp / 'gofile-response.json').read_text())
+          if response.get('status') != 'ok':
+              raise SystemExit('GoFile retornou status: ' + str(response.get('status', 'desconhecido')))
+          data = response['data']
+          apk = temp / 'gofile-upload/BigXR-debug.apk'
+          page = data.get('downloadPage', '')
+          if not re.fullmatch(r'https://gofile\.io/d/[A-Za-z0-9_-]{1,128}', page):
+              raise SystemExit('GoFile não retornou uma página de download válida')
+          if data.get('name') != apk.name or data.get('size') != apk.stat().st_size:
+              raise SystemExit('Nome ou tamanho retornado pelo GoFile não confere')
+          digest = hashlib.md5(apk.read_bytes()).hexdigest()
+          if data.get('md5', '').lower() != digest:
+              raise SystemExit('Hash retornado pelo GoFile não confere')
+          # The response may contain a guest account token. Never print or commit it.
+          print('::notice title=GoFile download::' + page, flush=True)
+          PY
