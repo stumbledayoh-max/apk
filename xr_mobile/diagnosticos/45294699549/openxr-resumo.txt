@@ -1,0 +1,33 @@
+I/XRProbe ( 5843): BROKER sem runtime
+I/XRProbe ( 5843): LOADER_CONTEXT_GLOBAL
+I/XRProbe ( 5843): LOADER_INIT 0
+I/OpenXR-Loader( 5843): Got runtime: package: com.xrpocket.probe, so filename: libopenxr_monado.so, native lib dir: /data/app/~~f0kgwfLNF87HqV9Ty5LjlA==/com.xrpocket.probe-sp9IOZs3AL2kpXh41q8myg==/lib/arm64, has functions: no
+I/XRProbe ( 5843): CREATE_INSTANCE cycle=1 result=0
+I/XRProbe ( 5843): GET_SYSTEM cycle=1 result=0
+I/XRProbe ( 5843): DESTROY_INSTANCE cycle=1 result=0
+I/OpenXR-Loader( 5843): Got runtime: package: com.xrpocket.probe, so filename: libopenxr_monado.so, native lib dir: /data/app/~~f0kgwfLNF87HqV9Ty5LjlA==/com.xrpocket.probe-sp9IOZs3AL2kpXh41q8myg==/lib/arm64, has functions: no
+I/XRProbe ( 5843): CREATE_INSTANCE cycle=2 result=0
+I/XRProbe ( 5843): GET_SYSTEM cycle=2 result=0
+I/XRProbe ( 5843): DESTROY_INSTANCE cycle=2 result=0
+I/OpenXR-Loader( 5843): Got runtime: package: com.xrpocket.probe, so filename: libopenxr_monado.so, native lib dir: /data/app/~~f0kgwfLNF87HqV9Ty5LjlA==/com.xrpocket.probe-sp9IOZs3AL2kpXh41q8myg==/lib/arm64, has functions: no
+I/XRProbe ( 5843): CREATE_INSTANCE cycle=3 result=0
+I/XRProbe ( 5843): GET_SYSTEM cycle=3 result=0
+I/XRProbe ( 5843): DESTROY_INSTANCE cycle=3 result=0
+I/XRProbe ( 5843): ALL_CYCLES_OK
+I/XRProbe ( 5843): OLFX_PH5_PACKETS_READY
+I/OpenXR-Loader( 5843): Got runtime: package: com.xrpocket.probe, so filename: libopenxr_monado.so, native lib dir: /data/app/~~f0kgwfLNF87HqV9Ty5LjlA==/com.xrpocket.probe-sp9IOZs3AL2kpXh41q8myg==/lib/arm64, has functions: no
+I/XRProbe ( 5843): INPUT_SESSION_STATE 1
+I/XRProbe ( 5843): INPUT_SESSION_STATE 2
+I/XRProbe ( 5843): INPUT_SESSION_STATE 3
+I/XRProbe ( 5843): INPUT_SESSION_STATE 4
+I/XRProbe ( 5843): INPUT_SESSION_STATE 5
+I/XRProbe ( 5843): INPUT_GYRO_BASELINE
+I/XRProbe ( 5843): INPUT_PRESS_OK 1.000
+I/XRProbe ( 5843): INPUT_POSE_OK -0.345 0.041 -0.662
+I/XRProbe ( 5843): INPUT_RELEASE_OK 0.000
+I/XRProbe ( 5843): INPUT_HEAD_MOTION_OK dot=0.994689
+I/XRProbe ( 5843): INPUT_SUMMARY press=1 release=1 handPose=1 headMotion=1 focused=1
+I/XRProbe ( 5843): INPUTS_OK
+I/XRProbe ( 5843): Broker: sem runtime
+I/XRProbe ( 5843): OpenXR: 3 instances created and destroyed successfully
+I/XRProbe ( 5843): Inputs: synthetic inputs and virtual head motion OK

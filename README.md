@@ -8,7 +8,7 @@ A cópia produzida é **um único APK**, com o jogo e os componentes BigXR dentr
 
 ## Build de teste
 
-A [build anterior testada](https://github.com/stumbledayoh-max/apk/actions/runs/45277972250) contém o artefato `BigXR-experimental` com `BigXR-debug.apk`, mas **ainda não inclui a integração OLFX**. O GitHub pode exigir login e os artefatos da CI expiram. SHA-256 do APK anterior: `6ed2058f06ba46f4a2d728a6fe2838a806a2b57830cc64b332a44b48fa09ae5e`.
+A [build experimental 45291443990](https://github.com/stumbledayoh-max/apk/actions/runs/45291443990) contém o artefato `BigXR-experimental` com `BigXR-debug.apk` e os componentes OLFX adaptados. O GitHub pode exigir login e os artefatos da CI expiram. SHA-256 do APK: `2dbdc08dbc91b3bd8aef79310095668a0b1892ace54d9b629a72accc7e01c973`. A build anterior `45277972250` não inclui essa integração.
 
 ## Como usar
 
@@ -20,7 +20,7 @@ A [build anterior testada](https://github.com/stumbledayoh-max/apk/actions/runs/
 
 A cópia conserva o nome de pacote original, mas recebe uma **nova assinatura local**, armazenada no Android Keystore do BigXR. O Android não permitirá atualizar diretamente a versão oficial com outra assinatura. Desinstalar a versão original pode apagar seus dados; faça backup antes. Desinstalar ou limpar os dados do BigXR pode remover a chave local, impedindo futuras atualizações de cópias assinadas anteriormente. Licenças, compras e verificações de integridade do jogo podem falhar; o BigXR não as remove nem garante que continuem funcionando.
 
-No [teste anterior em emulador Android 15](https://github.com/stumbledayoh-max/apk/actions/runs/45281192075), antes da integração OLFX, uma fixture própria foi personalizada, salva e instalada. Depois de desinstalar o criador, a cópia iniciou a câmera e o modelo, extraiu o OBB e concluiu ciclos OpenXR com entradas sintéticas. **Isso não é teste de gameplay, gestos ao vivo nem de um celular físico.**
+No [teste em emulador Android 15](https://github.com/stumbledayoh-max/apk/actions/runs/45294699549), uma fixture própria foi personalizada, salva e instalada. Depois de desinstalar o criador, a cópia processou um quadro da câmera pelo pipeline com componentes OLFX e modelo, extraiu o OBB e concluiu ciclos OpenXR. Em outro passo, landmarks sintéticos passaram pelo roteamento OLFX/PH5 e produziram ações OpenXR. **Isso não é teste de gameplay, gestos ao vivo nem de um celular físico.**
 
 ## Limitações e segurança
 
